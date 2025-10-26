@@ -27,6 +27,7 @@ go.work.sum
 # env file
 .env
 examples/openai_chat/.env
+examples/gemini_chat/.env
 
 # Editor/IDE
 # .idea/
