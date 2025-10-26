@@ -21,7 +21,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	provider, err := gemini.New(ctx, apiKey, "gemini-1.5-flash")
+	provider, err := gemini.New(ctx, apiKey, "gemini-2.5-flash")
 	if err != nil {
 		log.Fatalf("Failed to create provider: %v", err)
 	}
