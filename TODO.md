@@ -1,13 +1,24 @@
 # TODO List
 
-## Immediate (Before First Use)
+## ✅ v0.1.0 Released (Oct 26, 2025)
 
-- [ ] Test with actual Ollama instance
-- [ ] Verify all 3 examples work end-to-end
-- [ ] Check tool calling with Ollama (may need model that supports function calling)
-- [ ] Add more error handling edge cases
-- [ ] Create GitHub repository
-- [ ] Tag v0.1.0 release
+- [x] Test with actual Ollama instance
+- [x] Verify all examples work end-to-end
+- [x] Create GitHub repository (https://github.com/taipm/go-llm-agent)
+- [x] Tag v0.1.0 release
+- [x] Publish to public GitHub
+- [x] Verify go get works from external projects
+- [x] Implement streaming support (bonus feature!)
+- [x] Create 5 working examples
+- [x] Comprehensive documentation suite
+
+## Immediate Next Steps
+
+- [ ] Test tool calling with Ollama function calling models
+- [ ] Add streaming unit tests
+- [ ] Update documentation for streaming API
+- [ ] Create GitHub Release notes with examples
+- [ ] Test in go-youtube-channel project
 
 ## Documentation
 
@@ -28,10 +39,13 @@
 ## v0.2 Preparation
 
 ### Streaming Support
-- [ ] Design streaming API
-- [ ] Implement streaming in Ollama provider
-- [ ] Add streaming examples
-- [ ] Document streaming usage
+
+- [x] Design streaming API
+- [x] Implement streaming in Ollama provider
+- [x] Add streaming examples (basic + advanced)
+- [ ] Document streaming usage in SPEC.md
+- [ ] Add streaming unit tests
+- [ ] Add streaming integration tests
 
 ### Built-in Tools
 - [ ] File operations (read, write, list, delete)
@@ -138,8 +152,15 @@
 ---
 
 **Priority Legend**:
+
 - Must have: Required for version completion
 - Should have: Important but not blocking
 - Nice to have: Would be great but optional
 
-**Current Focus**: Test v0.1 with real Ollama → Release → Start v0.2
+**Current Focus**: v0.1.0 released! Next: Documentation updates, streaming tests, then v0.2 built-in tools
+
+**Release Info**:
+
+- v0.1.0: Oct 26, 2025 - Initial release with streaming support
+- Repository: <https://github.com/taipm/go-llm-agent>
+- Go Module: `go get github.com/taipm/go-llm-agent@v0.1.0`
