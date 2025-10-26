@@ -40,7 +40,7 @@ func main() {
 		err := ag.ChatStream(ctx, question, func(chunk types.StreamChunk) error {
 			// Print content as it arrives
 			fmt.Print(chunk.Content)
-			
+
 			// Print metadata when done
 			if chunk.Done {
 				fmt.Println()
@@ -51,7 +51,7 @@ func main() {
 						chunk.Metadata.TotalTokens)
 				}
 			}
-			
+
 			return nil
 		})
 

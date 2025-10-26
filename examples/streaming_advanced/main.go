@@ -59,7 +59,7 @@ func main() {
 			if chunk.Done {
 				duration := time.Since(startTime)
 				fmt.Printf("\n[⏱️  %.2fs", duration.Seconds())
-				
+
 				if chunk.Metadata != nil {
 					tokensPerSec := float64(chunk.Metadata.CompletionTokens) / duration.Seconds()
 					fmt.Printf(" | 🎯 %d tokens | ⚡ %.1f tokens/sec",
