@@ -12,13 +12,135 @@
 - [x] Create 5 working examples
 - [x] Comprehensive documentation suite
 
-## Immediate Next Steps
+## Immediate Next Steps (Priority Order)
 
-- [ ] Test tool calling with Ollama function calling models
-- [ ] Add streaming unit tests
-- [ ] Update documentation for streaming API
-- [ ] Create GitHub Release notes with examples
-- [ ] Test in go-youtube-channel project
+### 1. Documentation Updates for Streaming
+**Priority**: High | **Effort**: Medium | **Impact**: High
+
+- [ ] Add streaming section to SPEC.md
+  - Document StreamChunk type structure
+  - Explain StreamHandler callback pattern
+  - Show error handling in streaming
+  - Document memory integration during streaming
+- [ ] Update QUICKSTART.md with streaming example
+  - Basic streaming example with explanation
+  - Advanced streaming with metrics
+  - Best practices for handler implementation
+- [ ] Add streaming API reference to README.md
+  - ChatStream() method signature
+  - StreamHandler callback interface
+  - Real-time output patterns
+
+**Acceptance Criteria**:
+- Users can understand streaming API without reading code
+- Clear examples of both basic and advanced usage
+- Error handling patterns documented
+
+---
+
+### 2. Streaming Unit Tests
+**Priority**: High | **Effort**: Medium | **Impact**: High
+
+- [ ] Create pkg/provider/ollama/streaming_test.go
+  - Test Stream() with mock HTTP responses
+  - Test JSON line-by-line parsing
+  - Test error handling (network errors, invalid JSON)
+  - Test partial chunk handling
+  - Test done flag handling
+- [ ] Add streaming tests to pkg/agent/agent_test.go
+  - Test ChatStream() with mock provider
+  - Test handler callback invocation
+  - Test response accumulation for memory
+  - Test error propagation to handler
+  - Test concurrent streaming calls
+
+**Acceptance Criteria**:
+- All streaming paths covered
+- Edge cases tested (connection drops, malformed JSON)
+- Test coverage for streaming >= 80%
+
+---
+
+### 3. Integration Test with Real Ollama
+**Priority**: High | **Effort**: Low | **Impact**: High
+
+- [ ] Create tests/integration_test.go
+  - Test Chat() with real Ollama instance
+  - Test ChatStream() with real streaming
+  - Test tool calling with function-capable models
+  - Test memory persistence across calls
+  - Test error scenarios (Ollama not running, wrong model)
+- [ ] Add GitHub Actions workflow
+  - Set up Ollama in CI environment
+  - Run integration tests automatically
+  - Generate coverage reports
+- [ ] Document how to run integration tests locally
+
+**Acceptance Criteria**:
+- Integration tests pass with real Ollama
+- CI pipeline runs tests on every PR
+- Clear instructions for local testing
+
+---
+
+### 4. Test in go-youtube-channel Project
+**Priority**: Medium | **Effort**: Low | **Impact**: High
+
+- [ ] Integrate go-llm-agent into go-agent service
+  - Replace existing LLM integration with go-llm-agent
+  - Update go.mod to use published module
+  - Remove duplicate agent code
+- [ ] Create agent for content planning
+  - Use Calculator tool for metrics
+  - Use Weather tool for seasonal content ideas
+  - Implement custom tools (YouTube API, analytics)
+- [ ] Test streaming for real-time feedback
+  - Stream content ideas to user
+  - Show progress during long operations
+- [ ] Document integration patterns
+  - How to create custom tools
+  - Best practices for production use
+  - Error handling and retry logic
+
+**Acceptance Criteria**:
+- go-youtube-channel uses published module successfully
+- Custom tools work correctly
+- Production-ready error handling implemented
+
+---
+
+### 5. GitHub Release Notes & Examples
+**Priority**: Medium | **Effort**: Low | **Impact**: Medium
+
+- [ ] Create comprehensive v0.1.0 release notes
+  - Feature highlights with code examples
+  - Breaking changes (none for initial release)
+  - Known limitations
+  - Upgrade guide (N/A for v0.1.0)
+- [ ] Add GIF demos to README
+  - Streaming response in action
+  - Tool calling example
+  - Multi-turn conversation
+- [ ] Create GitHub Release page
+  - Attach release notes
+  - Link to documentation
+  - Show installation instructions
+  - Add changelog
+- [ ] Set up issue templates
+  - Bug report template
+  - Feature request template
+  - Question template
+- [ ] Create PR template
+  - Checklist for contributors
+  - Testing requirements
+  - Documentation requirements
+
+**Acceptance Criteria**:
+- Release page looks professional
+- Visual demos show key features
+- Contributors know how to file issues/PRs
+
+---
 
 ## Documentation
 
