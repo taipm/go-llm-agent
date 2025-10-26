@@ -5,18 +5,26 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/joho/godotenv"
 	"github.com/taipm/go-llm-agent/pkg/agent"
-	"github.com/taipm/go-llm-agent/pkg/provider/ollama"
+	"github.com/taipm/go-llm-agent/pkg/provider"
 )
 
 func main() {
+	// Load .env file if exists
+	_ = godotenv.Load()
+
 	ctx := context.Background()
 
-	// Create Ollama provider
-	provider := ollama.New("http://localhost:11434", "qwen3:1.7b")
+	// Create provider from environment variables
+	// This allows switching providers without code changes!
+	llm, err := provider.FromEnv()
+	if err != nil {
+		log.Fatalf("Failed to create provider: %v", err)
+	}
 
 	// Create agent
-	ag := agent.New(provider)
+	ag := agent.New(llm)
 
 	fmt.Println("🤖 Simple Chat Example")
 	fmt.Println("=====================")

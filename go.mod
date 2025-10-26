@@ -3,6 +3,7 @@ module github.com/taipm/go-llm-agent
 go 1.25.3
 
 require (
+	github.com/joho/godotenv v1.5.1
 	github.com/openai/openai-go/v3 v3.6.1
 	google.golang.org/genai v1.32.0
 )

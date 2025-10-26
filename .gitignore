@@ -28,6 +28,7 @@ go.work.sum
 .env
 examples/openai_chat/.env
 examples/gemini_chat/.env
+examples/multi_provider/.env
 
 # Editor/IDE
 # .idea/

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/taipm/go-llm-agent/pkg/provider/gemini"
+	"github.com/taipm/go-llm-agent/pkg/provider"
 	"github.com/taipm/go-llm-agent/pkg/types"
 )
 
@@ -15,38 +15,44 @@ func main() {
 	// Load .env file if it exists
 	_ = godotenv.Load()
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		log.Fatal("GEMINI_API_KEY environment variable is required")
-	}
-
-	ctx := context.Background()
-	provider, err := gemini.New(ctx, apiKey, "gemini-2.5-flash")
+	// Option 1: Use FromEnv() for automatic configuration
+	llm, err := provider.FromEnv()
 	if err != nil {
-		log.Fatalf("Failed to create provider: %v", err)
+		// Option 2: Fall back to manual Gemini configuration
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			log.Fatal("GEMINI_API_KEY environment variable is required")
+		}
+		llm, err = provider.New(provider.Config{
+			Type:   provider.ProviderGemini,
+			APIKey: apiKey,
+			Model:  "gemini-2.5-flash",
+		})
+		if err != nil {
+			log.Fatalf("Failed to create provider: %v", err)
+		}
 	}
-	defer provider.Close()
 
 	fmt.Println("=== Example 1: Simple Chat ===")
-	simpleChat(provider)
+	simpleChat(llm)
 
 	fmt.Println()
 	fmt.Println("=== Example 2: Streaming Chat ===")
-	streamingChat(provider)
+	streamingChat(llm)
 
 	fmt.Println()
 	fmt.Println("=== Example 3: Tool Calling ===")
-	toolCallingExample(provider)
+	toolCallingExample(llm)
 }
 
-func simpleChat(provider *gemini.Provider) {
+func simpleChat(llm types.LLMProvider) {
 	ctx := context.Background()
 
 	messages := []types.Message{
 		{Role: types.RoleUser, Content: "What is the capital of France?"},
 	}
 
-	response, err := provider.Chat(ctx, messages, &types.ChatOptions{
+	response, err := llm.Chat(ctx, messages, &types.ChatOptions{
 		Temperature: 0.7,
 		MaxTokens:   100,
 	})
@@ -63,7 +69,7 @@ func simpleChat(provider *gemini.Provider) {
 	}
 }
 
-func streamingChat(provider *gemini.Provider) {
+func streamingChat(llm types.LLMProvider) {
 	ctx := context.Background()
 
 	messages := []types.Message{
@@ -71,7 +77,7 @@ func streamingChat(provider *gemini.Provider) {
 	}
 
 	fmt.Print("Streaming: ")
-	err := provider.Stream(ctx, messages, &types.ChatOptions{
+	err := llm.Stream(ctx, messages, &types.ChatOptions{
 		Temperature: 0.7,
 		MaxTokens:   100,
 	}, func(chunk types.StreamChunk) error {
@@ -89,7 +95,7 @@ func streamingChat(provider *gemini.Provider) {
 	}
 }
 
-func toolCallingExample(provider *gemini.Provider) {
+func toolCallingExample(llm types.LLMProvider) {
 	ctx := context.Background()
 
 	weatherTool := types.ToolDefinition{
@@ -119,7 +125,7 @@ func toolCallingExample(provider *gemini.Provider) {
 		{Role: types.RoleUser, Content: "What's the weather like in Tokyo?"},
 	}
 
-	response, err := provider.Chat(ctx, messages, &types.ChatOptions{
+	response, err := llm.Chat(ctx, messages, &types.ChatOptions{
 		Tools: []types.ToolDefinition{weatherTool},
 	})
 	if err != nil {
@@ -145,7 +151,7 @@ func toolCallingExample(provider *gemini.Provider) {
 			ToolCalls: response.ToolCalls,
 		}, toolResults)
 
-		finalResponse, err := provider.Chat(ctx, messages, nil)
+		finalResponse, err := llm.Chat(ctx, messages, nil)
 		if err != nil {
 			log.Fatalf("Chat error: %v", err)
 		}
