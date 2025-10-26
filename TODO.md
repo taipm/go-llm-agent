@@ -166,18 +166,158 @@
 - [ ] Increase test coverage to 80%+
 - [ ] Add benchmarks
 
-## v0.2 Preparation
+## v0.2 Preparation - Multi-Provider Support
 
-### Streaming Support
+**FOCUS**: Add OpenAI and Google Gemini providers while maintaining API uniformity
+
+**Reference**: See INTEGRATION_PLAN.md for detailed implementation strategy
+
+### Sprint 1: OpenAI Provider (Week 1)
+**Priority**: CRITICAL | **Effort**: 5 days | **Impact**: HIGH
+
+- [ ] Research & design (1 day) - **See INTEGRATION_PLAN.md**
+- [ ] OpenAI provider implementation (2 days)
+  - Create `pkg/provider/openai/openai.go` (~300 lines)
+  - Pin SDK version: `github.com/openai/openai-go/v3 v3.6.1`
+  - Implement `types.LLMProvider` interface (Chat, Stream)
+  - Constructor: `New(apiKey, model string) *Provider`
+- [ ] Message/tool conversion layer (1 day)
+  - Create `pkg/provider/openai/converter.go` (~200 lines)
+  - Convert `types.Message` ↔ `openai.ChatCompletionMessageParamUnion`
+  - Convert `types.ToolDefinition` ↔ `openai.ChatCompletionToolParam`
+  - Handle streaming chunks conversion
+- [ ] Tests & examples (1 day)
+  - Create `pkg/provider/openai/openai_test.go` (~400 lines)
+  - Integration tests with real OpenAI API
+  - Target: 70%+ coverage
+  - Create `examples/openai_chat/main.go` (~100 lines)
+  - Mirror structure of `examples/simple_chat`
+- [ ] Documentation (0.5 day)
+  - Update README.md with OpenAI examples
+  - Add to QUICKSTART.md
+  - Document API key setup
+
+**Acceptance Criteria**:
+- ✅ API identical to Ollama provider (switch = 1 line change)
+- ✅ All tests pass with real OpenAI API
+- ✅ Example works out of the box
+- ✅ Documentation shows provider switching
+
+---
+
+### Sprint 2: Google Gemini Provider (Week 2)
+**Priority**: CRITICAL | **Effort**: 5 days | **Impact**: HIGH
+
+- [ ] Gemini provider implementation (2 days)
+  - Create `pkg/provider/gemini/gemini.go` (~250 lines)
+  - Pin SDK version: `google.golang.org/genai v1.32.0`
+  - Implement `types.LLMProvider` interface
+  - Constructor: `New(apiKey, model string) (*Provider, error)`
+  - Support both Gemini API and Vertex AI backends
+- [ ] Multimodal support extension (1 day)
+  - Create `pkg/provider/gemini/converter.go` (~150 lines)
+  - Extend `types.Message` with optional `Parts` field for images
+  - Support inline data (base64 images)
+  - Maintain backward compatibility (text-only still works)
+- [ ] Tests & examples (1 day)
+  - Create `pkg/provider/gemini/gemini_test.go` (~300 lines)
+  - Integration tests with real Gemini API
+  - Create `examples/gemini_chat/main.go` - basic text chat
+  - Create `examples/gemini_multimodal/main.go` - vision example
+- [ ] Documentation (0.5 day)
+  - Update README with Gemini examples
+  - Document multimodal usage
+  - Add provider comparison table
+
+**Acceptance Criteria**:
+- ✅ API identical to OpenAI/Ollama for basic chat
+- ✅ Multimodal is opt-in extension
+- ✅ Tests pass with real Gemini API
+- ✅ Examples show both text and vision
+
+---
+
+### Sprint 3: Integration & Polish (Week 3)
+**Priority**: HIGH | **Effort**: 5 days | **Impact**: MEDIUM
+
+- [ ] Factory pattern (1 day)
+  - Create `pkg/provider/factory.go` (~150 lines)
+  - `New(config Config) (types.LLMProvider, error)`
+  - `FromEnv()` - auto-detect from environment variables
+  - Support provider types: ollama, openai, gemini
+- [ ] Unified configuration (1 day)
+  - Environment variable support (PROVIDER, *_API_KEY, etc.)
+  - Config struct with validation
+  - Examples: `examples/multi_provider/main.go`
+- [ ] Comprehensive tests (1 day)
+  - Factory tests: `pkg/provider/factory_test.go`
+  - Cross-provider compatibility tests
+  - Ensure identical behavior where possible
+- [ ] Examples for all providers (1 day)
+  - Update all existing examples to show provider switching
+  - Add README per example explaining differences
+  - Provider fallback example
+- [ ] Final documentation (1 day)
+  - Complete README overhaul with multi-provider
+  - Update SPEC.md with provider section
+  - Provider migration guide
+  - API uniformity guarantees
+
+**Acceptance Criteria**:
+- ✅ Switch provider via environment variable
+- ✅ All providers work identically from user code
+- ✅ Documentation clear and comprehensive
+- ✅ Ready for v0.2.0 release
+
+---
+
+### Dependencies Update
+**Priority**: CRITICAL | **Status**: Planned
+
+Update `go.mod`:
+```go
+module github.com/taipm/go-llm-agent
+
+go 1.22 // Required by both openai-go and go-genai
+
+require (
+    github.com/openai/openai-go/v3 v3.6.1  // Pinned for stability
+    google.golang.org/genai v1.32.0        // Pinned for stability
+)
+```
+
+**Version Pin Strategy**:
+- Review SDK changelogs quarterly
+- Test in dev branch before updating pins
+- Document breaking changes in CHANGELOG.md
+
+---
+
+### Quality Gates (All Providers Must Pass)
+
+- [ ] Implements `types.LLMProvider` interface exactly
+- [ ] Constructor follows pattern: `New(apiKey, model string)`
+- [ ] Chat() signature: `Chat(ctx, messages, options) (*Response, error)`
+- [ ] Stream() signature: `Stream(ctx, messages, options, handler) error`
+- [ ] Error handling returns `types.ProviderError`
+- [ ] Example code structure mirrors `examples/simple_chat`
+- [ ] Tests achieve 70%+ coverage
+- [ ] Documentation shows 1-line provider switch
+
+---
+
+### Streaming Support ✅
 
 - [x] Design streaming API
 - [x] Implement streaming in Ollama provider
 - [x] Add streaming examples (basic + advanced)
 - [ ] Document streaming usage in SPEC.md
-- [ ] Add streaming unit tests
+- [x] Add streaming unit tests (71.8% coverage)
 - [ ] Add streaming integration tests
 
-### Built-in Tools
+---
+
+### Built-in Tools (Post Multi-Provider)
 - [ ] File operations (read, write, list, delete)
 - [ ] HTTP requests (GET, POST, PUT, DELETE)
 - [ ] JSON/YAML parser
@@ -206,12 +346,14 @@
 
 ## v0.3 and Beyond
 
-### Multi-Provider Support
-- [ ] OpenAI provider
-- [ ] Azure OpenAI provider
+### Additional Provider Support
+- [ ] Azure OpenAI provider (separate from OpenAI)
 - [ ] Anthropic Claude provider
-- [ ] Generic HTTP provider
-- [ ] Provider fallback mechanism
+- [ ] Cohere provider
+- [ ] AI21 Labs provider
+- [ ] Generic HTTP provider (custom endpoints)
+- [ ] Provider fallback/retry mechanism
+- [ ] Provider pooling/load balancing
 
 ### Persistent Storage
 - [ ] SQLite backend
@@ -287,10 +429,18 @@
 - Should have: Important but not blocking
 - Nice to have: Would be great but optional
 
-**Current Focus**: v0.1.0 released! Next: Documentation updates, streaming tests, then v0.2 built-in tools
+**Current Focus**: v0.1.0 released! Next: **Multi-Provider Support (OpenAI + Gemini)**
+
+**Timeline**: 3 weeks to complete v0.2.0
+- Week 1: OpenAI provider (v3.6.1)
+- Week 2: Gemini provider (v1.32.0)
+- Week 3: Integration + factory pattern
 
 **Release Info**:
 
-- v0.1.0: Oct 26, 2025 - Initial release with streaming support
+- v0.1.0: Oct 26, 2025 - Initial release with Ollama + streaming support
+- v0.2.0: Mid-Nov 2025 (planned) - Multi-provider (Ollama + OpenAI + Gemini)
 - Repository: <https://github.com/taipm/go-llm-agent>
 - Go Module: `go get github.com/taipm/go-llm-agent@v0.1.0`
+
+**See Also**: INTEGRATION_PLAN.md for detailed multi-provider architecture and implementation guide
