@@ -27,14 +27,32 @@ func main() {
 	// Create tool registry
 	registry := tools.NewRegistry()
 
-	// Register file tools
+	// Register file tools (read, list, write, delete)
 	fileConfig := file.Config{
-		AllowedPaths:  []string{".", "/tmp"},
+		AllowedPaths:  []string{".", "/tmp", os.TempDir()},
 		MaxFileSize:   10 * 1024 * 1024, // 10MB
 		AllowSymlinks: false,
 	}
 	registry.Register(file.NewReadTool(fileConfig))
 	registry.Register(file.NewListTool(fileConfig))
+	
+	// Register write tool with backup enabled
+	writeConfig := file.WriteConfig{
+		Config:       fileConfig,
+		CreateDirs:   true,
+		Backup:       true,
+		BackupSuffix: ".bak",
+	}
+	registry.Register(file.NewWriteTool(writeConfig))
+	
+	// Register delete tool with safety restrictions
+	deleteConfig := file.DeleteConfig{
+		Config:              fileConfig,
+		ProtectedPaths:      file.DefaultDeleteConfig.ProtectedPaths,
+		AllowRecursive:      true,
+		RequireConfirmation: true,
+	}
+	registry.Register(file.NewDeleteTool(deleteConfig))
 
 	// Register datetime tools
 	registry.Register(datetime.NewNowTool())
@@ -42,7 +60,11 @@ func main() {
 	fmt.Printf("Registered %d tools:\n", registry.Count())
 	for _, name := range registry.Names() {
 		tool := registry.Get(name)
-		fmt.Printf("  - %s (%s): %s\n", name, tool.Category(), tool.Description())
+		safetyStr := "safe"
+		if !tool.IsSafe() {
+			safetyStr = "UNSAFE"
+		}
+		fmt.Printf("  - %s (%s, %s): %s\n", name, tool.Category(), safetyStr, tool.Description())
 	}
 	fmt.Println()
 
