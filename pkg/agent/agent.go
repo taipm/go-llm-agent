@@ -25,6 +25,7 @@ type Agent struct {
 	// Reasoning engines (lazy initialized)
 	reactAgent *reasoning.ReActAgent
 	cotAgent   *reasoning.CoTAgent
+	reflector  *reasoning.Reflector
 
 	// Auto-reasoning settings
 	enableAutoReasoning bool
@@ -32,19 +33,23 @@ type Agent struct {
 
 // Options contains configuration for the agent
 type Options struct {
-	SystemPrompt  string
-	Temperature   float64
-	MaxTokens     int
-	MaxIterations int // Maximum tool calling iterations
+	SystemPrompt     string
+	Temperature      float64
+	MaxTokens        int
+	MaxIterations    int     // Maximum tool calling iterations
+	MinConfidence    float64 // Minimum confidence for reflection (0.0 = disabled)
+	EnableReflection bool    // Enable self-reflection verification
 }
 
 // DefaultOptions returns default agent options
 func DefaultOptions() *Options {
 	return &Options{
-		SystemPrompt:  "You are a helpful AI assistant.",
-		Temperature:   0.7,
-		MaxTokens:     2000,
-		MaxIterations: 10,
+		SystemPrompt:     "You are a helpful AI assistant.",
+		Temperature:      0.7,
+		MaxTokens:        2000,
+		MaxIterations:    10,
+		MinConfidence:    0.7,  // Default: require 70% confidence
+		EnableReflection: true, // Enable reflection by default
 	}
 }
 
@@ -147,6 +152,20 @@ func WithoutBuiltinTools() Option {
 	return func(a *Agent) {
 		// Clear the tools registry
 		a.tools = tools.NewRegistry()
+	}
+}
+
+// WithReflection enables or disables self-reflection
+func WithReflection(enabled bool) Option {
+	return func(a *Agent) {
+		a.options.EnableReflection = enabled
+	}
+}
+
+// WithMinConfidence sets the minimum confidence threshold for reflection
+func WithMinConfidence(threshold float64) Option {
+	return func(a *Agent) {
+		a.options.MinConfidence = threshold
 	}
 }
 
@@ -263,18 +282,35 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 		if len(response.ToolCalls) == 0 {
 			a.logger.Debug("No tool calls, returning response")
 
+			answer := response.Content
+
+			// Apply reflection if enabled
+			if a.options.EnableReflection && len(currentMessages) > 0 {
+				// Get the original question (first user message)
+				var question string
+				for _, msg := range currentMessages {
+					if msg.Role == types.RoleUser {
+						question = msg.Content
+						break
+					}
+				}
+				if question != "" {
+					answer = a.applyReflection(ctx, question, answer)
+				}
+			}
+
 			// Save final assistant response to memory
 			if a.memory != nil {
 				finalMsg := types.Message{
 					Role:    types.RoleAssistant,
-					Content: response.Content,
+					Content: answer,
 				}
 				if err := a.memory.Add(finalMsg); err != nil {
 					return "", fmt.Errorf("failed to add final response to memory: %w", err)
 				}
 				a.logger.Debug("💾 Saved assistant response to memory")
 			}
-			return response.Content, nil
+			return answer, nil
 		}
 
 		// Log tool calls
@@ -596,6 +632,11 @@ func (a *Agent) chatWithCoT(ctx context.Context, message string) (string, error)
 		a.cotAgent.SaveToMemory(ctx)
 	}
 
+	// Apply reflection if enabled
+	if a.options.EnableReflection {
+		answer = a.applyReflection(ctx, message, answer)
+	}
+
 	return answer, nil
 }
 
@@ -645,4 +686,120 @@ func (a *Agent) chatWithReAct(ctx context.Context, message string) (string, erro
 	}
 
 	return finalAnswer, nil
+}
+
+// applyReflection performs self-reflection on an answer and returns the final (possibly corrected) answer
+func (a *Agent) applyReflection(ctx context.Context, question string, initialAnswer string) string {
+	// Lazy initialize reflector
+	if a.reflector == nil {
+		a.reflector = reasoning.NewReflector(a.provider, a.memory)
+		a.reflector.WithLogger(a.logger)
+		// Add tools for verification
+		allTools := a.tools.All()
+		a.reflector.WithTools(allTools...)
+	}
+
+	// Perform reflection
+	reflection, err := a.reflector.Reflect(ctx, question, initialAnswer)
+	if err != nil {
+		a.logger.Warn("⚠️  Reflection failed: %v, using initial answer", err)
+		return initialAnswer
+	}
+
+	// Check confidence threshold
+	if reflection.Confidence < a.options.MinConfidence {
+		a.logger.Warn("⚠️  Low confidence (%.2f < %.2f)", reflection.Confidence, a.options.MinConfidence)
+
+		// If answer was corrected, use the corrected version
+		if reflection.WasCorrected {
+			a.logger.Info("🔧 Using corrected answer")
+
+			// Save correction note to memory
+			if a.memory != nil {
+				correctionNote := types.Message{
+					Role:    types.RoleAssistant,
+					Content: fmt.Sprintf("[CORRECTED via reflection] %s", reflection.FinalAnswer),
+				}
+				a.memory.Add(correctionNote)
+			}
+
+			return reflection.FinalAnswer
+		}
+	} else {
+		a.logger.Info("✅ High confidence (%.2f)", reflection.Confidence)
+	}
+
+	return reflection.FinalAnswer
+}
+
+// ChatWithReflection performs chat with self-reflection and verification
+// Returns the reflection check for analysis
+// NOTE: For normal usage, just use Chat() with EnableReflection=true
+func (a *Agent) ChatWithReflection(ctx context.Context, message string, minConfidence float64) (*types.ReflectionCheck, error) {
+	a.logger.Info("💭 Chat with self-reflection enabled (min confidence: %.2f)", minConfidence)
+
+	// Step 1: Get initial answer using normal chat
+	initialAnswer, err := a.Chat(ctx, message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get initial answer: %w", err)
+	}
+
+	// Step 2: Lazy initialize reflector
+	if a.reflector == nil {
+		a.reflector = reasoning.NewReflector(a.provider, a.memory)
+		a.reflector.WithLogger(a.logger)
+		// Add tools for verification (web_search, math_calculate, etc.)
+		allTools := a.tools.All()
+		a.reflector.WithTools(allTools...)
+	}
+
+	// Step 3: Perform reflection
+	reflection, err := a.reflector.Reflect(ctx, message, initialAnswer)
+	if err != nil {
+		a.logger.Warn("⚠️  Reflection failed: %v, returning initial answer", err)
+		// Return reflection with initial answer even if reflection failed
+		return &types.ReflectionCheck{
+			Question:      message,
+			InitialAnswer: initialAnswer,
+			FinalAnswer:   initialAnswer,
+			Confidence:    0.5,
+		}, nil
+	}
+
+	// Step 4: Check if confidence meets threshold
+	if reflection.Confidence < minConfidence {
+		a.logger.Warn("⚠️  Confidence (%.2f) below threshold (%.2f)", reflection.Confidence, minConfidence)
+		if !reflection.WasCorrected {
+			a.logger.Warn("   No correction was made - consider this answer uncertain")
+		}
+	} else {
+		a.logger.Info("✅ Confidence (%.2f) meets threshold", reflection.Confidence)
+	}
+
+	// Step 5: Update memory with final answer if it was corrected
+	if reflection.WasCorrected && a.memory != nil {
+		// The initial answer was already saved by Chat()
+		// Now we need to update or add a correction note
+		correctionNote := types.Message{
+			Role:    types.RoleAssistant,
+			Content: fmt.Sprintf("[REFLECTION CORRECTION] %s", reflection.FinalAnswer),
+		}
+		if err := a.memory.Add(correctionNote); err != nil {
+			a.logger.Warn("⚠️  Failed to save correction to memory: %v", err)
+		}
+	}
+
+	return reflection, nil
+}
+
+// WithReflection enables or disables automatic reflection for all chats
+func (a *Agent) WithReflection(enable bool) *Agent {
+	a.options.EnableReflection = enable
+	return a
+}
+
+// WithMinConfidence sets the minimum confidence threshold for reflection
+func (a *Agent) WithMinConfidence(minConfidence float64) *Agent {
+	a.options.MinConfidence = minConfidence
+	return a
 }
