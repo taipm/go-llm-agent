@@ -130,7 +130,7 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 		if err := a.memory.Add(userMsg); err != nil {
 			return "", fmt.Errorf("failed to add message to memory: %w", err)
 		}
-		LogMemory(a.logger, "saved", 1)
+		a.logger.Debug("💾 Saved user message to memory")
 	}
 
 	// Get conversation history
@@ -141,6 +141,7 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 			return "", fmt.Errorf("failed to get history: %w", err)
 		}
 		messages = history
+		a.logger.Debug("💾 Retrieved %d messages from memory", len(messages))
 	} else {
 		messages = []types.Message{userMsg}
 	}
@@ -201,7 +202,7 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 				if err := a.memory.Add(finalMsg); err != nil {
 					return "", fmt.Errorf("failed to add final response to memory: %w", err)
 				}
-				LogMemory(a.logger, "saved", 1)
+				a.logger.Debug("💾 Saved assistant response to memory")
 			}
 			return response.Content, nil
 		}
@@ -222,6 +223,7 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 			if err := a.memory.Add(assistantMsg); err != nil {
 				return "", fmt.Errorf("failed to add assistant message to memory: %w", err)
 			}
+			a.logger.Debug("💾 Saved assistant message with %d tool calls to memory", len(response.ToolCalls))
 		}
 
 		// Execute each tool
@@ -257,7 +259,7 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 		}
 
 		if a.memory != nil {
-			LogMemory(a.logger, "saved", len(response.ToolCalls))
+			a.logger.Debug("💾 Saved %d tool results to memory", len(response.ToolCalls))
 		}
 
 		// Continue loop to let LLM process tool results

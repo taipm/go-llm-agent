@@ -32,10 +32,8 @@ func main() {
 	datetimeTools := builtin.GetDateTimeTools()
 	mathTools := builtin.GetMathTools()
 
-	// 3. Create agent with logging (memory initialized automatically with 100 messages)
-	ag := agent.New(llm,
-		agent.WithLogLevel(agent.LogLevelInfo), // INFO level shows key actions
-	)
+	// 3. Create agent (memory and logging initialized automatically)
+	ag := agent.New(llm)
 
 	// Register tools
 	for _, tool := range datetimeTools {

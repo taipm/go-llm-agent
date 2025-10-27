@@ -75,9 +75,9 @@ func main() {
 	}
 	fmt.Println()
 
-	// Create agent with logging (memory is initialized automatically with 100 messages)
+	// Create agent (memory and logging initialized automatically)
 	var a *agent.Agent
-	a = agent.New(llm, agent.WithLogLevel(agent.LogLevelInfo))
+	a = agent.New(llm)
 
 	// Register all tools
 	for _, tool := range tools {
@@ -139,7 +139,7 @@ func main() {
 			return
 
 		case "clear":
-			a = agent.New(llm, agent.WithLogLevel(agent.LogLevelInfo))
+			a = agent.New(llm)
 			// Re-register all tools
 			for _, tool := range tools {
 				a.AddTool(tool)
