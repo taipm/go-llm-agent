@@ -34,3 +34,4 @@ examples/multi_provider/.env
 # .idea/
 # .vscode/
 builtin_tools
+examples/simple/simple
