@@ -7,7 +7,6 @@ import (
 
 	"github.com/taipm/go-llm-agent/pkg/agent"
 	"github.com/taipm/go-llm-agent/pkg/builtin"
-	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -75,9 +74,8 @@ func main() {
 		}
 	}
 
-	// 3. Create agent with memory and all tools
-	mem := memory.NewBuffer(50)
-	ag := agent.New(llm, agent.WithMemory(mem))
+	// 3. Create agent with all tools (memory initialized automatically with 100 messages)
+	ag := agent.New(llm)
 
 	// Register all tools
 	for _, tool := range tools {
@@ -149,8 +147,8 @@ func main() {
 
 	// 6. Show summary
 	fmt.Println("=== Memory Statistics ===")
-	fmt.Printf("Agent maintains conversation context across turns\n")
-	fmt.Printf("Memory capacity: 50 messages\n")
+	fmt.Println("Agent maintains conversation context across turns")
+	fmt.Println("Default memory capacity: 100 messages (automatically initialized)")
 
 	fmt.Println("\n=== Demo Complete ===")
 	fmt.Println("\nKey Features Demonstrated:")

@@ -11,7 +11,6 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/taipm/go-llm-agent/pkg/agent"
 	"github.com/taipm/go-llm-agent/pkg/builtin"
-	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 )
 
@@ -76,12 +75,9 @@ func main() {
 	}
 	fmt.Println()
 
-	// Create memory for conversation history (50 messages max)
-	mem := memory.NewBuffer(50)
-
-	// Create agent with logging enabled
+	// Create agent with logging (memory is initialized automatically with 100 messages)
 	var a *agent.Agent
-	a = agent.New(llm, agent.WithMemory(mem), agent.WithLogLevel(agent.LogLevelInfo))
+	a = agent.New(llm, agent.WithLogLevel(agent.LogLevelInfo))
 
 	// Register all tools
 	for _, tool := range tools {
@@ -143,8 +139,7 @@ func main() {
 			return
 
 		case "clear":
-			mem = memory.NewBuffer(50)
-			a = agent.New(llm, agent.WithMemory(mem), agent.WithLogLevel(agent.LogLevelInfo))
+			a = agent.New(llm, agent.WithLogLevel(agent.LogLevelInfo))
 			// Re-register all tools
 			for _, tool := range tools {
 				a.AddTool(tool)

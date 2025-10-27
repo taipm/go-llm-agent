@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/tool"
 	"github.com/taipm/go-llm-agent/pkg/types"
 )
@@ -35,11 +36,12 @@ func DefaultOptions() *Options {
 	}
 }
 
-// New creates a new agent
+// New creates a new agent with default memory (100 messages)
 func New(provider types.LLMProvider, opts ...Option) *Agent {
 	agent := &Agent{
 		provider: provider,
 		tools:    tool.NewRegistry(),
+		memory:   memory.NewBuffer(100), // Default memory with 100 messages
 		options:  DefaultOptions(),
 		logger:   NewConsoleLogger(), // Default logger
 	}

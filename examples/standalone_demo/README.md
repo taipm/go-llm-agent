@@ -172,12 +172,14 @@ The agent shows detailed logs of what it's doing:
 
 ## Customization
 
+## Customization
+
 ### Change Log Level
 
 In `main.go`, find this line:
 
 ```go
-agent.WithLogLevel(agent.LogLevelInfo),
+a := agent.New(llm, agent.WithLogLevel(agent.LogLevelInfo))
 ```
 
 Change to:
@@ -185,7 +187,16 @@ Change to:
 - `agent.LogLevelWarn` - Only warnings and errors
 - Or use `agent.DisableLogging()` - No logs at all
 
-### Add Custom Tools
+### Add Custom Memory Size
+
+By default, the agent uses 100 messages memory. To customize:
+
+```go
+import "github.com/taipm/go-llm-agent/pkg/memory"
+
+mem := memory.NewBuffer(200) // Remember last 200 messages
+a := agent.New(llm, agent.WithMemory(mem))
+```
 
 You can add your own tools:
 
@@ -214,18 +225,13 @@ allTools = append(allTools, customTool)
 
 ### Adjust Memory Size
 
-Change the buffer size (default is 50 messages):
+Memory is initialized automatically with 100 messages. To customize:
 
 ```go
-mem := memory.NewBufferMemory(100) // Remember last 100 messages
-```
+import "github.com/taipm/go-llm-agent/pkg/memory"
 
-### Set Max Iterations
-
-Control how many tool calls the agent can make in one turn:
-
-```go
-agent.WithMaxIterations(5), // Max 5 tool calls per question
+mem := memory.NewBuffer(200) // Remember last 200 messages
+a := agent.New(llm, agent.WithMemory(mem))
 ```
 
 ## Troubleshooting

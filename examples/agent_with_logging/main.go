@@ -8,7 +8,6 @@ import (
 
 	"github.com/taipm/go-llm-agent/pkg/agent"
 	"github.com/taipm/go-llm-agent/pkg/builtin"
-	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -33,10 +32,8 @@ func main() {
 	datetimeTools := builtin.GetDateTimeTools()
 	mathTools := builtin.GetMathTools()
 
-	// 3. Create agent with memory and logging
-	mem := memory.NewBuffer(50)
+	// 3. Create agent with logging (memory initialized automatically with 100 messages)
 	ag := agent.New(llm,
-		agent.WithMemory(mem),
 		agent.WithLogLevel(agent.LogLevelInfo), // INFO level shows key actions
 	)
 
