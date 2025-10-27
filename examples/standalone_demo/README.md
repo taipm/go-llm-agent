@@ -154,7 +154,7 @@ While chatting, you can use these commands:
 
 ## Logging Output
 
-The agent shows detailed logs of what it's doing:
+The agent shows detailed logs of what it's doing by default (INFO level):
 
 ```
 👤 User: Calculate 25 * 4 + 100
@@ -170,22 +170,34 @@ The agent shows detailed logs of what it's doing:
 11:30:47 [INFO]    The result is 200.
 ```
 
+**Memory operations are logged at DEBUG level:**
+
+```
+11:30:45 [DEBUG] 💾 Saved user message to memory
+11:30:45 [DEBUG] 💾 Retrieved 5 messages from memory
+11:30:46 [DEBUG] 💾 Saved assistant message with 1 tool calls to memory
+11:30:46 [DEBUG] 💾 Saved 1 tool results to memory
+11:30:47 [DEBUG] 💾 Saved assistant response to memory
+```
+
 ## Customization
 
 ## Customization
 
 ### Change Log Level
 
-In `main.go`, find this line:
+Agent uses INFO level by default. To see memory operations:
 
 ```go
-a := agent.New(llm, agent.WithLogLevel(agent.LogLevelInfo))
+a := agent.New(llm, agent.WithLogLevel(agent.LogLevelDebug))
 ```
 
-Change to:
-- `agent.LogLevelDebug` - See everything (including LLM responses)
-- `agent.LogLevelWarn` - Only warnings and errors
-- Or use `agent.DisableLogging()` - No logs at all
+To reduce logging:
+
+```go
+a := agent.New(llm, agent.WithLogLevel(agent.LogLevelWarn)) // Only warnings
+a := agent.New(llm, agent.DisableLogging())                  // No logs
+```
 
 ### Add Custom Memory Size
 
