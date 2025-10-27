@@ -37,7 +37,7 @@ func main() {
 	// Scenario 1: Wrong tool usage (5 similar errors)
 	fmt.Println("Scenario 1: Using wrong tool for calculations (5x)")
 	errorQueries1 := []string{
-		"Search the web for 123 * 456",  // Force web search instead of calculator
+		"Search the web for 123 * 456", // Force web search instead of calculator
 		"Find online the result of 789 + 321",
 		"Look up 555 - 222 on the internet",
 		"Google what is 999 / 3",
@@ -271,4 +271,3 @@ func showSummary(stats1, stats2, stats3, stats4 QueryStats) {
 	fmt.Printf("   The agent recorded %d failures as learning experiences.\n", totalFailure)
 	fmt.Printf("   These patterns can now be used to prevent similar errors.\n")
 }
-

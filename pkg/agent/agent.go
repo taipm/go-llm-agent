@@ -481,7 +481,7 @@ func (a *Agent) initToolSelector() {
 
 	a.toolSelector = learning.NewToolSelector(a.experienceStore, a.tools, a.logger)
 	a.logger.Info("✅ Tool selector ready (ε-greedy learning active)")
-	
+
 	// Also initialize error analyzer
 	a.initErrorAnalyzer()
 }

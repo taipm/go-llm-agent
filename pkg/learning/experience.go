@@ -272,3 +272,36 @@ type ExperienceStats struct {
 	AvgLatencyMs       int64          `json:"avg_latency_ms"`
 	AvgConfidence      float64        `json:"avg_confidence"`
 }
+
+// GetAllFailures retrieves all failed experiences (for error pattern detection)
+// This is more efficient than semantic search when we just need all failures
+func (e *ExperienceStore) GetAllFailures(ctx context.Context, limit int) ([]Experience, error) {
+	if limit <= 0 {
+		limit = 1000 // Default to last 1000 failures
+	}
+
+	// Get all experiences from category
+	messages, err := e.memory.GetByCategory(ctx, types.CategoryExperience, limit*2) // Get more to account for filtering
+	if err != nil {
+		return nil, fmt.Errorf("failed to get experiences: %w", err)
+	}
+
+	// Parse and filter for failures only
+	results := make([]Experience, 0)
+	for _, msg := range messages {
+		var exp Experience
+		if err := json.Unmarshal([]byte(msg.Content), &exp); err != nil {
+			continue // Skip invalid entries
+		}
+
+		// Only include failures
+		if !exp.Success {
+			results = append(results, exp)
+			if len(results) >= limit {
+				break
+			}
+		}
+	}
+
+	return results, nil
+}

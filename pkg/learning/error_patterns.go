@@ -22,19 +22,19 @@ type ErrorPattern struct {
 	LastSeen    time.Time `json:"last_seen"`   // Most recent occurrence
 
 	// Pattern characteristics
-	CommonQuery    string   `json:"common_query"`    // Representative query
-	FailedTools    []string `json:"failed_tools"`    // Tools that failed
-	CommonIntents  []string `json:"common_intents"`  // Related intents
-	ErrorMessages  []string `json:"error_messages"`  // Common error messages
-	AvgConfidence  float64  `json:"avg_confidence"`  // Average confidence when failing
-	SuccessRate    float64  `json:"success_rate"`    // How often this pattern succeeds
-	
+	CommonQuery   string   `json:"common_query"`   // Representative query
+	FailedTools   []string `json:"failed_tools"`   // Tools that failed
+	CommonIntents []string `json:"common_intents"` // Related intents
+	ErrorMessages []string `json:"error_messages"` // Common error messages
+	AvgConfidence float64  `json:"avg_confidence"` // Average confidence when failing
+	SuccessRate   float64  `json:"success_rate"`   // How often this pattern succeeds
+
 	// Solutions
-	Correction  string   `json:"correction"`  // How to fix this error
-	Prevention  string   `json:"prevention"`  // How to avoid this error
-	BestTool    string   `json:"best_tool"`   // Tool that works for similar queries
-	Confidence  float64  `json:"confidence"`  // Confidence in this pattern (0.0-1.0)
-	
+	Correction string  `json:"correction"` // How to fix this error
+	Prevention string  `json:"prevention"` // How to avoid this error
+	BestTool   string  `json:"best_tool"`  // Tool that works for similar queries
+	Confidence float64 `json:"confidence"` // Confidence in this pattern (0.0-1.0)
+
 	// Evidence
 	ExperienceIDs []string `json:"experience_ids"` // IDs of experiences in this pattern
 }
@@ -53,10 +53,10 @@ type ErrorAnalyzer struct {
 	logger      logger.Logger
 
 	// Detection parameters
-	minClusterSize    int     // Minimum experiences to form a pattern (default: 3)
-	similarityThresh  float64 // Minimum similarity to group errors (default: 0.75)
-	minConfidence     float64 // Minimum confidence for recommendations (default: 0.6)
-	maxPatterns       int     // Maximum patterns to track (default: 100)
+	minClusterSize   int     // Minimum experiences to form a pattern (default: 3)
+	similarityThresh float64 // Minimum similarity to group errors (default: 0.75)
+	minConfidence    float64 // Minimum confidence for recommendations (default: 0.6)
+	maxPatterns      int     // Maximum patterns to track (default: 100)
 
 	// Cached patterns
 	patterns []ErrorPattern
@@ -80,26 +80,10 @@ func NewErrorAnalyzer(experiences *ExperienceStore, log logger.Logger) *ErrorAna
 func (e *ErrorAnalyzer) DetectPatterns(ctx context.Context) ([]ErrorPattern, error) {
 	e.logger.Info("🔍 Starting error pattern detection...")
 
-	// Step 1: Query all failed experiences
-	failed := make([]Experience, 0)
-	
-	// We need to query using a generic search since we can't filter by success=false directly yet
-	// TODO: This will be more efficient with SQLite in Phase 2.2
-	allFilters := ExperienceFilters{
-		Query: "error failed problem issue", // Semantic search for failures
-		Limit: 500, // Analyze last 500 potentially failed queries
-	}
-
-	candidates, err := e.experiences.Query(ctx, allFilters)
+	// Step 1: Query all failed experiences using efficient category-based retrieval
+	failed, err := e.experiences.GetAllFailures(ctx, 500) // Analyze last 500 failures
 	if err != nil {
 		return nil, fmt.Errorf("failed to query experiences: %w", err)
-	}
-
-	// Filter for actual failures
-	for _, exp := range candidates {
-		if !exp.Success {
-			failed = append(failed, exp)
-		}
 	}
 
 	e.logger.Debug("Found %d failed experiences to analyze", len(failed))
@@ -115,7 +99,7 @@ func (e *ErrorAnalyzer) DetectPatterns(ctx context.Context) ([]ErrorPattern, err
 
 	// Step 3: Extract patterns from clusters
 	patterns := make([]ErrorPattern, 0)
-	
+
 	for i, cluster := range clusters {
 		// Only create patterns for clusters meeting minimum size
 		if cluster.Size < e.minClusterSize {
@@ -277,7 +261,7 @@ func (e *ErrorAnalyzer) extractPattern(ctx context.Context, cluster ErrorCluster
 		if exp.Error != "" && len(errorMsgs) < 5 {
 			errorMsgs = append(errorMsgs, exp.Error)
 		}
-		
+
 		experienceIDs = append(experienceIDs, exp.ID)
 		totalConfidence += exp.Confidence
 
@@ -291,10 +275,10 @@ func (e *ErrorAnalyzer) extractPattern(ctx context.Context, cluster ErrorCluster
 
 	// Find most common error type
 	commonErrorType := e.mostCommon(errorTypes)
-	
+
 	// Find most common failed tools
 	failedTools := e.topN(tools, 3)
-	
+
 	// Find most common intents
 	commonIntents := e.topN(intents, 3)
 
@@ -314,24 +298,24 @@ func (e *ErrorAnalyzer) extractPattern(ctx context.Context, cluster ErrorCluster
 	correction, bestTool := e.findCorrection(ctx, cluster.Experiences[0])
 
 	pattern := &ErrorPattern{
-		ID:             patternID,
-		Pattern:        commonErrorType,
-		Description:    description,
-		ErrorType:      commonErrorType,
-		Frequency:      cluster.Size,
-		FirstSeen:      firstSeen,
-		LastSeen:       lastSeen,
-		CommonQuery:    commonQuery,
-		FailedTools:    failedTools,
-		CommonIntents:  commonIntents,
-		ErrorMessages:  errorMsgs,
-		AvgConfidence:  avgConfidence,
-		SuccessRate:    0.0, // Failed pattern
-		Correction:     correction,
-		Prevention:     e.generatePrevention(commonErrorType, failedTools),
-		BestTool:       bestTool,
-		Confidence:     e.calculatePatternConfidence(cluster),
-		ExperienceIDs:  experienceIDs,
+		ID:            patternID,
+		Pattern:       commonErrorType,
+		Description:   description,
+		ErrorType:     commonErrorType,
+		Frequency:     cluster.Size,
+		FirstSeen:     firstSeen,
+		LastSeen:      lastSeen,
+		CommonQuery:   commonQuery,
+		FailedTools:   failedTools,
+		CommonIntents: commonIntents,
+		ErrorMessages: errorMsgs,
+		AvgConfidence: avgConfidence,
+		SuccessRate:   0.0, // Failed pattern
+		Correction:    correction,
+		Prevention:    e.generatePrevention(commonErrorType, failedTools),
+		BestTool:      bestTool,
+		Confidence:    e.calculatePatternConfidence(cluster),
+		ExperienceIDs: experienceIDs,
 	}
 
 	return pattern
@@ -341,14 +325,14 @@ func (e *ErrorAnalyzer) extractPattern(ctx context.Context, cluster ErrorCluster
 func (e *ErrorAnalyzer) mostCommon(items map[string]int) string {
 	maxCount := 0
 	common := ""
-	
+
 	for item, count := range items {
 		if count > maxCount {
 			maxCount = count
 			common = item
 		}
 	}
-	
+
 	return common
 }
 
@@ -358,44 +342,44 @@ func (e *ErrorAnalyzer) topN(items map[string]int, n int) []string {
 		key   string
 		value int
 	}
-	
+
 	pairs := make([]pair, 0)
 	for k, v := range items {
 		pairs = append(pairs, pair{k, v})
 	}
-	
+
 	sort.Slice(pairs, func(i, j int) bool {
 		return pairs[i].value > pairs[j].value
 	})
-	
+
 	result := make([]string, 0)
 	for i := 0; i < len(pairs) && i < n; i++ {
 		result = append(result, pairs[i].key)
 	}
-	
+
 	return result
 }
 
 // generateDescription creates a human-readable pattern description
 func (e *ErrorAnalyzer) generateDescription(errorType string, tools []string, intents []string, frequency int) string {
 	parts := make([]string, 0)
-	
+
 	if errorType != "" {
 		parts = append(parts, fmt.Sprintf("'%s' errors", errorType))
 	} else {
 		parts = append(parts, "Errors")
 	}
-	
+
 	if len(tools) > 0 {
 		parts = append(parts, fmt.Sprintf("when using %s", strings.Join(tools, ", ")))
 	}
-	
+
 	if len(intents) > 0 {
 		parts = append(parts, fmt.Sprintf("for %s tasks", strings.Join(intents, ", ")))
 	}
-	
+
 	parts = append(parts, fmt.Sprintf("(occurred %d times)", frequency))
-	
+
 	return strings.Join(parts, " ")
 }
 
@@ -437,7 +421,7 @@ func (e *ErrorAnalyzer) findCorrection(ctx context.Context, failedExp Experience
 	}
 
 	bestTool := e.mostCommon(toolCounts)
-	
+
 	correction := fmt.Sprintf(
 		"Try using '%s' tool instead (succeeded %d/%d times for similar queries)",
 		bestTool,
@@ -468,7 +452,7 @@ func (e *ErrorAnalyzer) generatePrevention(errorType string, failedTools []strin
 	}
 
 	if len(failedTools) > 0 {
-		prevention = append(prevention, 
+		prevention = append(prevention,
 			fmt.Sprintf("Avoid using %s for this type of query", strings.Join(failedTools, ", ")))
 	}
 
@@ -484,12 +468,12 @@ func (e *ErrorAnalyzer) calculatePatternConfidence(cluster ErrorCluster) float64
 	// Confidence based on:
 	// - Cluster size (more occurrences = more confident)
 	// - Cluster similarity (tighter cluster = more confident)
-	
+
 	sizeScore := math.Min(float64(cluster.Size)/10.0, 1.0) // Max at 10 occurrences
 	similarityScore := cluster.Similarity
-	
+
 	confidence := (sizeScore*0.6 + similarityScore*0.4)
-	
+
 	return confidence
 }
 
@@ -508,9 +492,9 @@ func (e *ErrorAnalyzer) SuggestCorrection(ctx context.Context, query string, err
 
 	// Try to match query to existing patterns
 	bestMatch := e.findBestMatchingPattern(query, errorMsg)
-	
+
 	if bestMatch != nil && bestMatch.Confidence >= e.minConfidence {
-		e.logger.Info("✅ Found matching error pattern: %s (confidence: %.2f)", 
+		e.logger.Info("✅ Found matching error pattern: %s (confidence: %.2f)",
 			bestMatch.Description, bestMatch.Confidence)
 		return bestMatch, nil
 	}
@@ -546,7 +530,7 @@ func (e *ErrorAnalyzer) findBestMatchingPattern(query string, errorMsg string) *
 	for i := range e.patterns {
 		pattern := &e.patterns[i]
 		score := e.scorePatternMatch(pattern, query, errorMsg)
-		
+
 		if score > bestScore {
 			bestScore = score
 			bestMatch = pattern
@@ -568,11 +552,11 @@ func (e *ErrorAnalyzer) scorePatternMatch(pattern *ErrorPattern, query string, e
 	// Simple text similarity (could be improved with embeddings)
 	queryLower := strings.ToLower(query)
 	patternQueryLower := strings.ToLower(pattern.CommonQuery)
-	
+
 	// Check for common words
 	queryWords := strings.Fields(queryLower)
 	patternWords := strings.Fields(patternQueryLower)
-	
+
 	commonWords := 0
 	for _, qw := range queryWords {
 		for _, pw := range patternWords {
@@ -582,7 +566,7 @@ func (e *ErrorAnalyzer) scorePatternMatch(pattern *ErrorPattern, query string, e
 			}
 		}
 	}
-	
+
 	if len(queryWords) > 0 {
 		score += float64(commonWords) / float64(len(queryWords)) * 0.5
 	}
@@ -592,7 +576,7 @@ func (e *ErrorAnalyzer) scorePatternMatch(pattern *ErrorPattern, query string, e
 		errorLower := strings.ToLower(errorMsg)
 		for _, patternErr := range pattern.ErrorMessages {
 			if strings.Contains(errorLower, strings.ToLower(patternErr)) ||
-			   strings.Contains(strings.ToLower(patternErr), errorLower) {
+				strings.Contains(strings.ToLower(patternErr), errorLower) {
 				score += 0.3
 				break
 			}
@@ -621,14 +605,14 @@ func (e *ErrorAnalyzer) GetPatternStats() map[string]interface{} {
 	if len(e.patterns) > 0 {
 		totalFreq := 0
 		highConfidence := 0
-		
+
 		for _, p := range e.patterns {
 			totalFreq += p.Frequency
 			if p.Confidence >= 0.7 {
 				highConfidence++
 			}
 		}
-		
+
 		stats["total_occurrences"] = totalFreq
 		stats["high_confidence_patterns"] = highConfidence
 		stats["avg_frequency"] = float64(totalFreq) / float64(len(e.patterns))
