@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-01-27
+
+### Added
+
+- **Self-Learning System (Phase 3)** - Intelligent experience-based learning
+  - `ExperienceStore` - Vector-based experience storage with semantic search
+    * Records query, intent, tool calls, success/failure, latency
+    * Stores experiences in VectorMemory (Qdrant) for persistence
+    * Supports semantic search for similar past experiences
+    * Filter by intent, reasoning mode, success, time range
+  - `ToolSelector` - ε-greedy tool selection based on past performance
+    * Learns tool success rates from experience history
+    * Exploration-exploitation balance (default ε=0.1)
+    * Recommends best tools for given intents
+    * Configurable exploration rate
+  - `ErrorAnalyzer` - Automatic error pattern detection and correction
+    * Clusters similar errors using semantic similarity (threshold: 0.75)
+    * Extracts recurring patterns (minimum cluster size: 3)
+    * Suggests corrections from successful similar queries
+    * Generates prevention advice by error type
+    * Pattern confidence scoring based on cluster size and similarity
+    * Unit tests for pattern matching and clustering algorithms
+  - `GetAllFailures()` - Efficient failure retrieval from Qdrant
+    * Category-based filtering instead of semantic search
+    * Optimized for error pattern detection
+  - Learning enabled via `agent.WithLearning(true)` option
+  - Automatic initialization of learning components when VectorMemory available
+  - Enhanced `Status()` with learning metrics (experience count, tool recommendations)
+
+- **Agent Self-Assessment** - Inspect agent capabilities via tool
+  - `inspect_agent` tool - Returns comprehensive agent status
+    * Memory status and message count
+    * Available tools with descriptions
+    * Learning system status (if enabled)
+    * Reasoning modes
+    * Provider information
+  - Integration in examples: zero_config_agent, learning demos
+  - Enables agents to understand their own capabilities
+
+- **Examples**
+  - `examples/learning_agent` - Demonstrates experience recording and tool selection
+  - `examples/learning_status_demo` - Shows learning system status and metrics
+  - `examples/error_analyzer_demo` - Error pattern detection with intentional failures
+  - `examples/zero_config_agent` - Updated with self-assessment capabilities
+
+### Changed
+
+- `Agent.Chat()` now records experiences when learning is enabled
+  - Captures full context: query, intent, tools used, success/failure, latency
+  - Automatically stores in VectorMemory for future reference
+- `Agent.Status()` enhanced with learning intelligence
+  - Shows experience store status
+  - Reports tool selector readiness
+  - Displays error analyzer status
+  - Lists recent experiences count
+- ReAct reasoning now routes calculations to `math_calculate` tool
+  - Improved intent detection for mathematical queries
+  - Better tool selection for arithmetic operations
+
+### Fixed
+
+- `DetectPatterns()` now uses efficient category-based retrieval
+  - Previously used semantic search with generic query "error failed problem issue"
+  - Now uses `GetAllFailures()` for direct failure retrieval from Qdrant
+  - Significantly better performance and accuracy
+
+### Testing
+
+- Added comprehensive unit tests for ErrorAnalyzer
+  - `TestErrorAnalyzerHelpers` - Tests utility functions (mostCommon, topN, calculateClusterSimilarity)
+  - `TestPatternMatching` - Tests pattern scoring and matching algorithms
+  - `TestInitialization` - Verifies default configuration
+  - All tests passing ✅
+
+### Documentation
+
+- `TODO.md` reorganized for clarity (1416 → 217 lines, 85% reduction)
+  - Accurate progress tracking (Phase 3: 87.5% complete)
+  - Priority-based organization (P0/P1/P2)
+  - Clear timelines and milestones
+- `AGENT_CAPABILITIES.md` - Comprehensive documentation of agent features
+  - Memory systems, reasoning modes, tool categories
+  - Learning capabilities and metrics
+  - Self-assessment via inspect_agent tool
+
 ### Added
 
 - **Gmail Tools Package** (4 email automation tools with OAuth2)
