@@ -5,94 +5,14 @@
 ## Current Status
 
 **Project**: go-llm-agent  
-**Version**: v0.3.0 (Phase 1 Complete - Network & Gmail Tools Added)  
+**Version**: v0.3.0 (85% Complete - 28 Built-in Tools Ready)  
 **Last Updated**: October 27, 2025
-
----
-
-## ✅ Built-in Tools Phase 1 - COMPLETED (28/28 tools, 100%)
-
-**Status**: ✅ COMPLETED (Oct 27, 2025)  
-**Achievement**: All 28 Phase 1 built-in tools implemented, tested, and integrated  
-**Total Lines**: ~9,700+ lines (production + tests + examples + docs)
-
-### Completed Tools Summary
-
-**File Tools (4/4)** ✅
-- ✅ file_read - Read file content with security
-- ✅ file_list - List directory with pattern matching
-- ✅ file_write - Write/append with backup
-- ✅ file_delete - Safe deletion with protection
-
-**Web Tools (3/3)** ✅
-- ✅ web_fetch - HTTP GET with SSRF prevention
-- ✅ web_post - HTTP POST (JSON/form)
-- ✅ web_scrape - CSS selector extraction
-
-**DateTime Tools (3/3)** ✅
-- ✅ datetime_now - Current time with formats
-- ✅ datetime_format - Format/timezone conversion
-- ✅ datetime_calc - Date calculations
-
-**System Tools (3/3)** ✅
-- ✅ system_info - CPU, memory, disk, OS, network
-- ✅ system_processes - List/filter/sort processes
-- ✅ system_apps - List installed applications
-
-**Math Tools (2/2)** ✅
-- ✅ math_calculate - Safe expression evaluation with govaluate
-- ✅ math_stats - Statistical analysis with gonum/stat
-
-**Database Tools (5/5)** ✅
-- ✅ mongodb_connect - Connection pooling (max 10)
-- ✅ mongodb_find - Query with filtering/sorting/projection
-- ✅ mongodb_insert - Insert one or many (max 100 batch)
-- ✅ mongodb_update - UpdateOne/UpdateMany with operators
-- ✅ mongodb_delete - DeleteOne/DeleteMany with safety checks
-
-**Network Tools (5/5)** ✅ **NEW - Auto-loaded**
-- ✅ network_dns_lookup - DNS record queries (miekg/dns)
-- ✅ network_ping - ICMP ping & TCP connectivity (go-ping)
-- ✅ network_whois_lookup - WHOIS queries (likexian/whois)
-- ✅ network_ssl_cert_check - SSL/TLS certificate validation
-- ✅ network_ip_info - IP geolocation (oschwald/geoip2)
-
-**Email Tools (4/4)** ✅ **NEW - Opt-in only**
-- ✅ gmail_send - Send emails via Gmail API
-- ✅ gmail_read - Read messages by ID (full/metadata/minimal)
-- ✅ gmail_list - List emails with filters & pagination
-- ✅ gmail_search - Advanced search (Gmail query syntax)
-
-### Integration Status
-- ✅ Builtin package: GetRegistry() one-line setup
-- ✅ Examples: 9 complete demos (including network & gmail examples)
-- ✅ All tests passing (200+ test cases)
-- ✅ Security features: path validation, SSRF prevention, OAuth2 credentials
-- ✅ Cross-platform: macOS, Linux, Windows support
-- ✅ Professional libraries: DNS, ping, whois, GeoIP2, Google Gmail API
-
-**Recent Commits**:
-- cc7b935: Math tools implementation (calculate & stats)
-- 561fcd4: Math tools example with 10 practical demos
-- a239c80: Documentation updates for Math tools
-- a8ce766: MongoDB tools implementation (connect, find, insert, update, delete)
-- 31bef3b: Network tools implementation (dns, ping, whois, ssl, ip_info)
-- 937037f: Gmail tools implementation (send, read, list, search with OAuth2)
 
 ---
 
 ## 🎯 v0.3.0 Planning - Advanced Tools
 
 ### Phase 2: Vector Database & Data Tools (Target: Nov-Dec 2025)
-
-**MongoDB Tools (5 tools)** - ✅ COMPLETED (Oct 27, 2025)
-- ✅ mongodb_connect - Connect with connection pooling
-- ✅ mongodb_find - Query with filtering/sorting
-- ✅ mongodb_insert - Batch insert (max 100)
-- ✅ mongodb_update - UpdateOne/UpdateMany
-- ✅ mongodb_delete - DeleteOne/DeleteMany with safety
-
-**Qdrant Tools (5 tools)** - Priority: HIGH (NEXT)
 - [ ] qdrant_connect - Connect to Qdrant vector DB
 - [ ] qdrant_create_collection - Create vector collection
 - [ ] qdrant_upsert - Insert/update vectors
@@ -110,9 +30,10 @@
 
 ## 📋 Documentation Updates Needed
 
-- [ ] Update README.md with Network & Gmail tools examples
+- ✅ Update README.md with Network & Gmail tools examples
+- ✅ Update CHANGELOG.md with Network & Gmail tools
+- ✅ Update DONE.md and TODO.md with current status
 - [ ] Add Network & Gmail tools to BUILTIN_TOOLS_DESIGN.md
-- [ ] Update main project statistics (28 tools, 8 categories)
 - [ ] Create Qdrant design document
 - [ ] Add MongoDB connection pooling best practices doc
 - [ ] Gmail OAuth2 setup video tutorial (optional)
