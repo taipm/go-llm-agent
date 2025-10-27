@@ -5,7 +5,7 @@
 ## Current Status
 
 **Project**: go-llm-agent  
-**Version**: v0.4.0-alpha+planning (Auto-Reasoning + Vector Memory + Self-Reflection + Status + Planning)  
+**Version**: v0.4.0-alpha+learning (Auto-Reasoning + Vector Memory + Self-Reflection + Status + Planning + Learning Intelligence)  
 **Last Updated**: October 27, 2025  
 **Progress**: Phase 1.1 + 1.3 + 1.4 + 1.5 + 2.1 ✅ COMPLETE (73% of v0.4.0)
 
@@ -1245,7 +1245,7 @@ Needed: Keep important, archive unimportant
 - ✅ Phase 1.1: Auto-Reasoning (ReAct + CoT) - COMPLETE
 - ✅ Phase 1.3: Task Planning - **COMPLETED Oct 27, 2025** 🎯
 - ✅ Phase 1.4: Self-Reflection - **COMPLETED Oct 27, 2025** 🎉
-- ✅ Phase 1.5: Agent Introspection (Status) - **COMPLETED Oct 27, 2025** 🔍
+- ✅ Phase 1.5: Agent Introspection (Status + Learning Intelligence) - **COMPLETED Oct 27, 2025** 🔍
 - ✅ Phase 2.1: Vector Memory - COMPLETE
 - [ ] Phase 3: Experience tracking, tool selection learning, error patterns - URGENT
 - [ ] Phase 2.2-2.4: Memory persistence (SQLite), importance scoring - Pending
@@ -1327,11 +1327,17 @@ Needed: Keep important, archive unimportant
 - Configurable: `WithReflection(bool)`, `WithMinConfidence(float64)`
 
 ✅ **Agent Introspection** (Phase 1.5) - **Oct 27, 2025** 🔍
-- `agent.Status()` - comprehensive configuration inspection
+- agent.Status() with comprehensive state inspection
+- **Learning intelligence tracking** (NEW!)
+  - TotalExperiences, LearningStage (exploring/learning/expert)
+  - OverallSuccessRate, ReadyForProduction
+  - TopPerformingTools, ProblematicTools
+  - KnowledgeAreas (intent → count), RecentImprovements
 - JSON export for monitoring/logging
-- Runtime state visibility (tools, memory, reasoning capabilities)
+- Runtime state visibility (tools, memory, reasoning)
 - Type detection (memory type, provider type)
-- Use cases: debugging, validation, reporting, backups
+- Examples: inspect_agent (updated), learning_status_demo (NEW)
+- Documentation: STATUS_ENHANCEMENT.md (320 lines)
 
 ✅ **Vector Memory** (Phase 2.1)
 - Qdrant integration with semantic search
