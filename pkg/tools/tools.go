@@ -53,6 +53,9 @@ const (
 
 	// CategoryDateTime represents tools that work with dates and times
 	CategoryDateTime ToolCategory = "datetime"
+
+	// CategoryDatabase represents tools that interact with databases
+	CategoryDatabase ToolCategory = "database"
 )
 
 // BaseTool provides common functionality for all tools

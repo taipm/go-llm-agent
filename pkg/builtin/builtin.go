@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/taipm/go-llm-agent/pkg/tools"
+	"github.com/taipm/go-llm-agent/pkg/tools/database/mongodb"
 	"github.com/taipm/go-llm-agent/pkg/tools/datetime"
 	"github.com/taipm/go-llm-agent/pkg/tools/file"
 	mathtools "github.com/taipm/go-llm-agent/pkg/tools/math"
@@ -24,6 +25,7 @@ type Config struct {
 	NoTime   bool // Skip registering datetime tools
 	NoSystem bool // Skip registering system tools
 	NoMath   bool // Skip registering math tools
+	NoMongoDB bool // Skip registering MongoDB tools
 }
 
 // FileConfig contains file tool configurations
@@ -153,6 +155,15 @@ func GetRegistryWithConfig(config Config) *tools.Registry {
 		registry.Register(mathtools.NewStatsTool())
 	}
 
+	// Register MongoDB tools
+	if !config.NoMongoDB {
+		registry.Register(mongodb.NewConnectTool())
+		registry.Register(mongodb.NewFindTool())
+		registry.Register(mongodb.NewInsertTool())
+		registry.Register(mongodb.NewUpdateTool())
+		registry.Register(mongodb.NewDeleteTool())
+	}
+
 	return registry
 }
 
@@ -233,7 +244,18 @@ func GetMathTools() []tools.Tool {
 	}
 }
 
+// GetMongoDBTools returns all MongoDB-related built-in tools.
+func GetMongoDBTools() []tools.Tool {
+	return []tools.Tool{
+		mongodb.NewConnectTool(),
+		mongodb.NewFindTool(),
+		mongodb.NewInsertTool(),
+		mongodb.NewUpdateTool(),
+		mongodb.NewDeleteTool(),
+	}
+}
+
 // ToolCount returns the total number of built-in tools available.
 func ToolCount() int {
-	return 15 // 4 file + 3 web + 3 datetime + 3 system + 2 math
+	return 20 // 4 file + 3 web + 3 datetime + 3 system + 2 math + 5 mongodb
 }
