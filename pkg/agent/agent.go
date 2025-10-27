@@ -26,6 +26,7 @@ type Agent struct {
 	reactAgent *reasoning.ReActAgent
 	cotAgent   *reasoning.CoTAgent
 	reflector  *reasoning.Reflector
+	planner    *reasoning.Planner
 
 	// Auto-reasoning settings
 	enableAutoReasoning bool
@@ -255,7 +256,7 @@ func (a *Agent) Status() *AgentStatus {
 		messages := buffMem.GetAll()
 		status.Memory.MessageCount = len(messages)
 	}
-	
+
 	// Check if memory supports advanced features
 	if advMem, ok := a.memory.(types.AdvancedMemory); ok {
 		status.Memory.SupportsSearch = true
@@ -290,7 +291,7 @@ func (a *Agent) getMemoryType() string {
 // getProviderType returns a human-readable provider type
 func (a *Agent) getProviderType() string {
 	providerType := fmt.Sprintf("%T", a.provider)
-	
+
 	// Extract simple name from full package path
 	// e.g., "*ollama.Provider" -> "ollama"
 	parts := strings.Split(providerType, ".")
@@ -301,7 +302,7 @@ func (a *Agent) getProviderType() string {
 		name = strings.TrimPrefix(name, "provider/")
 		return name
 	}
-	
+
 	return providerType
 }
 
@@ -923,4 +924,56 @@ func (a *Agent) WithReflection(enable bool) *Agent {
 func (a *Agent) WithMinConfidence(minConfidence float64) *Agent {
 	a.options.MinConfidence = minConfidence
 	return a
+}
+
+// Plan creates a task decomposition plan for a complex goal
+func (a *Agent) Plan(ctx context.Context, goal string) (*types.Plan, error) {
+	a.logger.Info("📋 Creating plan for goal: %s", goal)
+
+	// Lazy initialize planner
+	if a.planner == nil {
+		a.planner = reasoning.NewPlanner(a.provider, a.memory, a.logger, true)
+	}
+
+	// Decompose goal into plan
+	plan, err := a.planner.DecomposeGoal(ctx, goal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plan: %w", err)
+	}
+
+	// Store plan in memory
+	if err := a.planner.SaveToMemory(ctx, plan); err != nil {
+		a.logger.Warn("⚠️  Failed to save plan to memory: %v", err)
+	}
+
+	return plan, nil
+}
+
+// ExecutePlan executes a plan by running each step through the agent
+func (a *Agent) ExecutePlan(ctx context.Context, plan *types.Plan) error {
+	if plan == nil {
+		return fmt.Errorf("plan is nil")
+	}
+
+	// Lazy initialize planner
+	if a.planner == nil {
+		a.planner = reasoning.NewPlanner(a.provider, a.memory, a.logger, true)
+	}
+
+	// Execute plan with agent as executor
+	executor := func(ctx context.Context, task string) (interface{}, error) {
+		// Use agent.Chat to execute each step
+		result, err := a.Chat(ctx, task)
+		return result, err
+	}
+
+	return a.planner.ExecutePlan(ctx, plan, executor)
+}
+
+// GetPlanProgress returns the execution progress of a plan
+func (a *Agent) GetPlanProgress(plan *types.Plan) *types.PlanProgress {
+	if a.planner == nil {
+		a.planner = reasoning.NewPlanner(a.provider, a.memory, a.logger, true)
+	}
+	return a.planner.GetProgress(plan)
 }

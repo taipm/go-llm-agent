@@ -43,3 +43,4 @@ examples/cot_reasoning/cot_reasoning
 examples/react_with_tools/react_with_tools
 examples/reflection_agent/reflection_agent
 examples/agent_status/agent_status
+examples/planning_agent/planning_agent
