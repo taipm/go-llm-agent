@@ -30,10 +30,10 @@ type CoTStep struct {
 
 // CoTChain represents a complete chain-of-thought reasoning process
 type CoTChain struct {
-	Query      string    `json:"query"`       // Original question
-	Steps      []CoTStep `json:"steps"`       // Step-by-step reasoning
-	Answer     string    `json:"answer"`      // Final answer
-	Confidence float64   `json:"confidence"`  // 0.0 to 1.0
+	Query      string    `json:"query"`      // Original question
+	Steps      []CoTStep `json:"steps"`      // Step-by-step reasoning
+	Answer     string    `json:"answer"`     // Final answer
+	Confidence float64   `json:"confidence"` // 0.0 to 1.0
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -43,14 +43,14 @@ type CoTChain struct {
 
 // PlanStep represents a single step in a task plan
 type PlanStep struct {
-	ID           string        `json:"id"`
-	Description  string        `json:"description"`
-	Dependencies []string      `json:"dependencies"` // IDs of steps that must complete first
-	Status       PlanStatus    `json:"status"`
-	Result       interface{}   `json:"result,omitempty"`
-	Error        error         `json:"error,omitempty"`
-	StartedAt    time.Time     `json:"started_at,omitempty"`
-	CompletedAt  time.Time     `json:"completed_at,omitempty"`
+	ID           string      `json:"id"`
+	Description  string      `json:"description"`
+	Dependencies []string    `json:"dependencies"` // IDs of steps that must complete first
+	Status       PlanStatus  `json:"status"`
+	Result       interface{} `json:"result,omitempty"`
+	Error        error       `json:"error,omitempty"`
+	StartedAt    time.Time   `json:"started_at,omitempty"`
+	CompletedAt  time.Time   `json:"completed_at,omitempty"`
 }
 
 // PlanStatus represents the status of a plan step
@@ -67,8 +67,8 @@ const (
 // Plan represents a complete task decomposition plan
 type Plan struct {
 	ID          string     `json:"id"`
-	Goal        string     `json:"goal"`        // High-level goal
-	Steps       []PlanStep `json:"steps"`       // Ordered list of steps
+	Goal        string     `json:"goal"`  // High-level goal
+	Steps       []PlanStep `json:"steps"` // Ordered list of steps
 	Status      PlanStatus `json:"status"`
 	CreatedAt   time.Time  `json:"created_at"`
 	StartedAt   time.Time  `json:"started_at,omitempty"`
@@ -90,23 +90,23 @@ type PlanProgress struct {
 
 // ReflectionCheck represents a verification/reflection process
 type ReflectionCheck struct {
-	Question       string              `json:"question"`
-	InitialAnswer  string              `json:"initial_answer"`
-	Concerns       []string            `json:"concerns"`      // What might be wrong?
-	Verifications  []VerificationStep  `json:"verifications"` // Verification attempts
-	FinalAnswer    string              `json:"final_answer"`
-	Confidence     float64             `json:"confidence"` // 0.0 to 1.0
-	WasCorrected   bool                `json:"was_corrected"`
-	CreatedAt      time.Time           `json:"created_at"`
+	Question      string             `json:"question"`
+	InitialAnswer string             `json:"initial_answer"`
+	Concerns      []string           `json:"concerns"`      // What might be wrong?
+	Verifications []VerificationStep `json:"verifications"` // Verification attempts
+	FinalAnswer   string             `json:"final_answer"`
+	Confidence    float64            `json:"confidence"` // 0.0 to 1.0
+	WasCorrected  bool               `json:"was_corrected"`
+	CreatedAt     time.Time          `json:"created_at"`
 }
 
 // VerificationStep represents one verification attempt
 type VerificationStep struct {
-	Method   string      `json:"method"` // "fact_check", "calculation_verify", "consistency_check"
-	Query    string      `json:"query"`
-	Result   interface{} `json:"result"`
-	Passed   bool        `json:"passed"`
-	Error    error       `json:"error,omitempty"`
+	Method string      `json:"method"` // "fact_check", "calculation_verify", "consistency_check"
+	Query  string      `json:"query"`
+	Result interface{} `json:"result"`
+	Passed bool        `json:"passed"`
+	Error  error       `json:"error,omitempty"`
 }
 
 // ===========================
@@ -140,15 +140,15 @@ const (
 
 // MessageMetadata extends Message with reasoning-specific metadata
 type MessageMetadata struct {
-	Category       MessageCategory `json:"category,omitempty"`
-	Priority       MemoryPriority  `json:"priority,omitempty"`
-	Importance     float64         `json:"importance,omitempty"`    // 0.0 to 1.0
-	ReActStep      *ReActStep      `json:"react_step,omitempty"`
-	CoTChain       *CoTChain       `json:"cot_chain,omitempty"`
-	Plan           *Plan           `json:"plan,omitempty"`
-	Reflection     *ReflectionCheck `json:"reflection,omitempty"`
-	Embedding      []float32       `json:"embedding,omitempty"`     // Vector embedding
-	RelatedIDs     []string        `json:"related_ids,omitempty"`   // Related message IDs
+	Category   MessageCategory  `json:"category,omitempty"`
+	Priority   MemoryPriority   `json:"priority,omitempty"`
+	Importance float64          `json:"importance,omitempty"` // 0.0 to 1.0
+	ReActStep  *ReActStep       `json:"react_step,omitempty"`
+	CoTChain   *CoTChain        `json:"cot_chain,omitempty"`
+	Plan       *Plan            `json:"plan,omitempty"`
+	Reflection *ReflectionCheck `json:"reflection,omitempty"`
+	Embedding  []float32        `json:"embedding,omitempty"`   // Vector embedding
+	RelatedIDs []string         `json:"related_ids,omitempty"` // Related message IDs
 }
 
 // ===========================
