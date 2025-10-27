@@ -1,52 +1,140 @@
-# Đặc tả Thư viện go-llm-agent
+# Technical Specification - go-llm-agent
 
-## 1. Mục tiêu dự án
+## 1. Project Goals
 
-**go-llm-agent** là một thư viện Go lightweight, dễ sử dụng để xây dựng các AI agent thông minh có khả năng:
-- Tương tác với LLM (bắt đầu với Ollama)
-- Sử dụng tools/functions để thực hiện các tác vụ cụ thể
-- Lưu trữ và sử dụng context/memory
-- Xử lý conversation có nhiều vòng tương tác
+**go-llm-agent** is a lightweight, easy-to-use Go library for building intelligent AI agents with:
+- Multi-provider LLM support (Ollama, OpenAI, Gemini)
+- Tools/functions for specific tasks
+- Context/memory management
+- Multi-turn conversation handling
 
-### Nguyên tắc phát triển
-- **LEAN**: Tập trung vào tính năng thiết yếu, chạy được ngay
-- **80/20**: Ưu tiên 20% tính năng tạo ra 80% giá trị
-- **Iterative**: Tiến hóa qua nhiều phiên bản nhỏ
-- **Simple API**: Dễ học, dễ dùng, dễ mở rộng
+### Development Principles
+- **LEAN**: Focus on essential features that work immediately
+- **80/20**: Prioritize 20% of features that create 80% of value
+- **Iterative**: Evolve through small versions
+- **Simple API**: Easy to learn, use, and extend
+- **Provider Agnostic**: Write once, run with any LLM provider
 
-## 2. Kiến trúc tổng quan
+## 2. Overall Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
 │              Application Code               │
 └─────────────────┬───────────────────────────┘
                   │
+        ┌─────────▼──────────┐
+        │  Factory Pattern   │
+        │  provider.FromEnv()│
+        │  provider.New()    │
+        └─────────┬──────────┘
+                  │
 ┌─────────────────▼───────────────────────────┐
-│              Agent Interface                │
-│  - Run(), Chat(), Execute()                 │
-└─────────────┬───────────────────────────────┘
-              │
-    ┌─────────┼─────────┐
-    │         │         │
-┌───▼────┐ ┌─▼──────┐ ┌▼────────┐
-│  LLM   │ │ Tools  │ │ Memory  │
-│Provider│ │ System │ │ Manager │
-└────────┘ └────────┘ └─────────┘
+│          Unified Provider Interface         │
+│  Chat(), Stream(), GetModel(), etc.         │
+└─────┬───────────┬───────────┬───────────────┘
+      │           │           │
+┌─────▼────┐ ┌───▼──────┐ ┌─▼────────┐
+│  Ollama  │ │  OpenAI  │ │  Gemini  │
+│ Provider │ │ Provider │ │ Provider │
+└──────────┘ └──────────┘ └──────────┘
+      │           │           │
+┌─────▼───────────▼───────────▼───────────────┐
+│         External LLM Services               │
+│  Ollama API, OpenAI API, Gemini API         │
+└─────────────────────────────────────────────┘
 ```
 
-## 3. Các thành phần chính
+## 3. Core Components
 
-### 3.1. Agent
-**Trách nhiệm**: Điều phối giữa LLM, Tools và Memory
+### 3.1. Provider System (v0.2.0+)
 
-**Chức năng cốt lõi**:
-- Nhận input từ người dùng
-- Gửi request đến LLM
-- Xử lý tool calls từ LLM response
-- Quản lý conversation flow
-- Lưu trữ lịch sử hội thoại
+**Purpose**: Abstract LLM communication across multiple providers
 
-**Interface cơ bản**:
+**Factory Pattern**:
+- `provider.FromEnv()`: Auto-detect provider from environment variables
+- `provider.New(name, config)`: Manual provider configuration
+
+**Supported Providers**:
+
+| Provider | Status | Features | Use Case |
+|----------|--------|----------|----------|
+| **Ollama** | ✅ Production | Local, Free, Privacy | Development, Learning |
+| **OpenAI** | ✅ Production | GPT-4o, Tools, Streaming | Production, Best Quality |
+| **Gemini** | ✅ Production | Large Context, Free Tier | Large Docs, Cost-Effective |
+
+**Unified Interface**:
+```go
+type Provider interface {
+    // Core methods
+    Chat(ctx context.Context, messages []Message, options *ChatOptions) (*Response, error)
+    Stream(ctx context.Context, messages []Message, options *ChatOptions, handler StreamHandler) error
+    
+    // Provider info
+    GetModel() string
+    GetProviderName() string
+}
+```
+
+**Provider Configuration**:
+```go
+// Auto-detection from environment
+provider, err := provider.FromEnv()
+
+// Manual configuration
+cfg := provider.Config{
+    Provider: "openai",
+    Model:    "gpt-4o-mini",
+    APIKey:   "sk-...",
+}
+provider, err := provider.New("openai", cfg)
+```
+
+**Environment Variables**:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `LLM_PROVIDER` | Provider name | `ollama`, `openai`, `gemini` |
+| `LLM_MODEL` | Model name | `qwen3:1.7b`, `gpt-4o-mini`, `gemini-2.5-flash` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
+| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
+| `GEMINI_API_KEY` | Gemini API key | `AI...` |
+
+**Provider-Specific Behaviors**:
+
+```go
+// Ollama
+- Local execution (no API key required)
+- Supports custom models via `ollama pull`
+- Tool calling: Limited model support (qwen3, llama3.1)
+- Streaming: Full support
+- Base URL: Configurable (default: http://localhost:11434)
+
+// OpenAI
+- Cloud-based (API key required)
+- Models: gpt-4o, gpt-4o-mini, gpt-3.5-turbo
+- Tool calling: Full support on all models
+- Streaming: Full support
+- Rate limits: Based on tier
+
+// Gemini
+- Cloud-based (API key required)
+- Models: gemini-2.5-flash, gemini-2.0-pro
+- Tool calling: Full support
+- Streaming: Full support
+- Context window: Up to 1M tokens
+```
+
+### 3.2. Agent (Legacy Pattern - Still Supported)
+**Purpose**: Coordinate LLM, Tools, and Memory
+
+**Core Functions**:
+- Receive user input
+- Send requests to LLM
+- Handle tool calls from LLM response
+- Manage conversation flow
+- Store conversation history
+
+**Interface**:
 ```go
 type Agent interface {
     Chat(ctx context.Context, message string) (string, error)
@@ -56,37 +144,18 @@ type Agent interface {
 }
 ```
 
-### 3.2. LLM Provider
-**Trách nhiệm**: Trừu tượng hóa việc giao tiếp với các LLM khác nhau
+**Note**: In v0.2.0+, direct provider usage is recommended over Agent pattern for simpler use cases.
 
-**Phase 1 - Ollama Support**:
-- Gửi messages đến Ollama API
-- Xử lý streaming responses
-- Hỗ trợ function calling (tool use)
-- Quản lý system prompts
-
-**Interface**:
-```go
-type LLMProvider interface {
-    Chat(ctx context.Context, messages []Message, options *ChatOptions) (*Response, error)
-    Stream(ctx context.Context, messages []Message, options *ChatOptions) (<-chan StreamChunk, error)
-}
-
-type OllamaProvider struct {
-    baseURL string
-    model   string
-    client  *http.Client
-}
-```
+### 3.3. LLM Provider (Implementation Details)
 
 ### 3.3. Tool System
-**Trách nhiệm**: Cho phép agent thực hiện các hành động cụ thể
+**Purpose**: Enable agent to perform specific actions
 
-**Chức năng**:
-- Đăng ký tools với tên và schema
+**Functions**:
+- Register tools with name and schema
 - Validate input parameters
-- Thực thi tool functions
-- Trả về kết quả cho LLM
+- Execute tool functions
+- Return results to LLM
 
 **Interface**:
 ```go
@@ -102,12 +171,20 @@ type ToolRegistry struct {
 }
 ```
 
-### 3.4. Memory Manager
-**Trách nhiệm**: Quản lý context và lịch sử hội thoại
+**Provider Tool Calling Support**:
 
-**Phase 1 - Simple Memory**:
+| Provider | Tool Support | Notes |
+|----------|--------------|-------|
+| OpenAI | ✅ Full | All models support function calling |
+| Gemini | ✅ Full | Native function calling support |
+| Ollama | ⚠️ Limited | Model-dependent (qwen3, llama3.1+) |
+
+### 3.4. Memory Manager
+**Purpose**: Manage context and conversation history
+
+**Current (v0.2.0) - Simple Memory**:
 - In-memory conversation history
-- Message buffer với giới hạn
+- Message buffer with limits
 - Truncation strategies
 
 **Future**:
@@ -168,118 +245,304 @@ type Metadata struct {
 }
 ```
 
-## 5. Workflow cơ bản
+## 5. Basic Workflow
 
-### Execution Flow
+### Execution Flow (Multi-Provider)
 ```
-1. User Input → Agent
-2. Agent → Add to Memory
-3. Agent → Format messages for LLM
-4. Agent → Send to LLM Provider
-5. LLM → Response with potential tool calls
-6. If tool calls:
-   a. Agent → Execute tools
-   b. Agent → Add results to messages
-   c. Go back to step 4
-7. Else:
-   a. Agent → Return final response
-   b. Agent → Save to Memory
+1. Application Code
+   ↓
+2. provider.FromEnv() or provider.New()
+   ↓
+3. Auto-detect provider (Ollama/OpenAI/Gemini)
+   ↓
+4. Create messages []types.Message
+   ↓
+5. Call provider.Chat(ctx, messages, options)
+   ↓
+6. Provider-specific API call
+   ↓
+7. Parse response (unified format)
+   ↓
+8. If tool calls:
+   a. Execute tools
+   b. Add results to messages
+   c. Call provider.Chat() again
+   ↓
+9. Return final response to application
 ```
 
-## 6. Ví dụ sử dụng
+### Streaming Flow
+```
+1. Application provides StreamHandler function
+   ↓
+2. Call provider.Stream(ctx, messages, options, handler)
+   ↓
+3. Provider opens streaming connection
+   ↓
+4. For each token/chunk:
+   a. Parse chunk
+   b. Call handler(chunk)
+   c. Handler prints/processes chunk
+   ↓
+5. Stream complete (chunk.Done = true)
+```
 
-### 6.1. Simple Chat
+## 6. Usage Examples
+
+### 6.1. Simple Chat (Multi-Provider)
+
 ```go
-agent := llmagent.NewAgent(
-    llmagent.WithOllama("http://localhost:11434", "llama3.2"),
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/taipm/go-llm-agent/pkg/provider"
+    "github.com/taipm/go-llm-agent/pkg/types"
+    _ "github.com/joho/godotenv/autoload"
 )
 
-response, err := agent.Chat(ctx, "What is the capital of France?")
-fmt.Println(response) // "The capital of France is Paris."
+func main() {
+    // Auto-detect provider from environment
+    llm, err := provider.FromEnv()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    ctx := context.Background()
+    messages := []types.Message{
+        {Role: types.RoleUser, Content: "What is the capital of France?"},
+    }
+    
+    response, err := llm.Chat(ctx, messages, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Println(response.Content) // "The capital of France is Paris."
+}
 ```
 
-### 6.2. Agent with Tools
+### 6.2. Streaming Response
+
 ```go
-// Define a tool
-weatherTool := &WeatherTool{}
+package main
 
-agent := llmagent.NewAgent(
-    llmagent.WithOllama("http://localhost:11434", "llama3.2"),
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/taipm/go-llm-agent/pkg/provider"
+    "github.com/taipm/go-llm-agent/pkg/types"
+    _ "github.com/joho/godotenv/autoload"
 )
-agent.AddTool(weatherTool)
 
-response, err := agent.Chat(ctx, "What's the weather in Tokyo?")
-// Agent will call weatherTool.Execute() and use result
+func main() {
+    llm, err := provider.FromEnv()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    ctx := context.Background()
+    messages := []types.Message{
+        {Role: types.RoleUser, Content: "Count from 1 to 10"},
+    }
+    
+    handler := func(chunk types.StreamChunk) error {
+        fmt.Print(chunk.Content)
+        return nil
+    }
+    
+    err = llm.Stream(ctx, messages, nil, handler)
+    if err != nil {
+        log.Fatal(err)
+    }
+}
 ```
 
-### 6.3. Multi-turn Conversation
+### 6.3. Tool Calling
+
 ```go
-agent := llmagent.NewAgent(
-    llmagent.WithOllama("http://localhost:11434", "llama3.2"),
-    llmagent.WithMemory(llmagent.NewBufferMemory(100)),
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/taipm/go-llm-agent/pkg/provider"
+    "github.com/taipm/go-llm-agent/pkg/types"
+    _ "github.com/joho/godotenv/autoload"
 )
 
-agent.Chat(ctx, "My name is John")
-agent.Chat(ctx, "What's my name?") // "Your name is John"
+func main() {
+    llm, err := provider.FromEnv()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Define tool
+    tools := []types.ToolDefinition{
+        {
+            Type: "function",
+            Function: types.FunctionDefinition{
+                Name:        "get_weather",
+                Description: "Get current weather",
+                Parameters: &types.JSONSchema{
+                    Type: "object",
+                    Properties: map[string]*types.JSONSchema{
+                        "location": {
+                            Type: "string",
+                            Description: "City name",
+                        },
+                    },
+                    Required: []string{"location"},
+                },
+            },
+        },
+    }
+    
+    ctx := context.Background()
+    messages := []types.Message{
+        {Role: types.RoleUser, Content: "What's the weather in Tokyo?"},
+    }
+    
+    options := &types.ChatOptions{Tools: tools}
+    response, err := llm.Chat(ctx, messages, options)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    if len(response.ToolCalls) > 0 {
+        // Execute tool and return result
+        fmt.Printf("Tool called: %s\n", response.ToolCalls[0].Function.Name)
+    }
+}
 ```
 
-## 7. Yêu cầu kỹ thuật
+## 7. Technical Requirements
 
-### Dependencies tối thiểu
-- Go 1.21+
+### Minimum Dependencies
+
+- Go 1.25+
 - Standard library
 - HTTP client (net/http)
 
-### Optional dependencies
-- JSON schema validation
-- Vector database client (future)
+### Provider Dependencies
+
+| Provider | Required Package | Version |
+|----------|------------------|---------|
+| Ollama | None (HTTP only) | - |
+| OpenAI | `github.com/sashabaranov/go-openai` | v3.6.1+ |
+| Gemini | `google.golang.org/genai` | v1.32.0+ |
 
 ### Testing
-- Unit tests cho từng component
-- Integration tests với Ollama
+
+- Unit tests for each component
+- Integration tests with all providers
+- Compatibility test suite
 - Example programs
 
 ## 8. Non-functional Requirements
 
 ### Performance
-- Hỗ trợ streaming responses
+
+- Streaming response support (all providers)
 - Timeout configuration
 - Connection pooling
+- Concurrent request handling
 
 ### Reliability
-- Error handling rõ ràng
-- Retry logic cho network calls
+
+- Clear error handling
+- Retry logic for network calls
 - Graceful degradation
+- Provider failover (future)
 
 ### Maintainability
+
 - Clean code, well documented
-- Examples cho mọi tính năng
+- Examples for all features
 - Semantic versioning
+- Comprehensive test coverage (70%+)
 
-## 9. Giới hạn phiên bản đầu (v0.1)
+## 9. Version Scope
 
-**Out of scope cho v0.1**:
-- Multiple LLM providers (chỉ Ollama)
+### v0.1.0 (Released) ✅
+
+- ✅ Basic agent with Ollama
+- ✅ Simple tool system
+- ✅ In-memory conversation history
+- ✅ Clear, simple API
+- ✅ Working examples
+
+**Out of scope**:
+- Multiple LLM providers
 - Vector database integration
 - Persistent storage
 - Advanced memory strategies
 - Streaming support
-- Multi-agent systems
-- Fine-tuning support
 
-**Focus v0.1**:
-- Basic agent với Ollama
-- Simple tool system
-- In-memory conversation history
-- Clear, simple API
-- Working examples
+### v0.2.0 (Current - 60% Complete) 🔄
+
+**Completed**:
+- ✅ Multi-provider architecture (Ollama, OpenAI, Gemini)
+- ✅ Factory pattern (FromEnv, New)
+- ✅ Unified provider interface
+- ✅ Streaming support (all providers)
+- ✅ Tool calling (provider-dependent)
+- ✅ Compatibility test suite
+- ✅ Provider comparison documentation
+
+**In Progress**:
+- 🔄 Documentation update (README, QUICKSTART, SPEC)
+- 🔄 Migration guide
+
+**Remaining**:
+- ⏸️ Release preparation
+- ⏸️ Final testing
+- ⏸️ Tag v0.2.0
+
+### v0.3.0 (Planned)
+
+- Agent builder pattern
+- Persistent memory (SQLite, PostgreSQL)
+- Vector database integration
+- Multi-agent coordination
+- Advanced streaming (function calling in stream)
+- Cost tracking and monitoring
 
 ## 10. Success Metrics
 
-**v0.1 thành công khi**:
-- ✅ Có thể chat với Ollama model
-- ✅ Có thể đăng ký và sử dụng ít nhất 2 tools
-- ✅ Có thể maintain conversation context
-- ✅ Có ít nhất 3 working examples
-- ✅ Documentation đầy đủ cho basic usage
+### v0.1.0 Success Criteria ✅
+
+- ✅ Chat with Ollama models
+- ✅ Register and use at least 2 tools
+- ✅ Maintain conversation context
+- ✅ At least 3 working examples
+- ✅ Full documentation
 - ✅ Code coverage >= 70%
+
+### v0.2.0 Success Criteria
+
+- ✅ Support 3 providers (Ollama, OpenAI, Gemini)
+- ✅ Same code works with all providers
+- ✅ Streaming support
+- ✅ Tool calling (where supported)
+- ✅ Comprehensive provider comparison
+- 🔄 Updated documentation
+- ⏸️ Migration guide for v0.1 users
+- ⏸️ Test coverage >= 71.8%
+
+### Performance Targets
+
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Test Coverage | >= 70% | 71.8% ✅ |
+| Compatibility Tests | 100% pass | 100% ✅ |
+| Provider Support | 3 providers | 3 ✅ |
+| API Breaking Changes | 0 | 0 ✅ |
+| Documentation Completeness | 100% | 75% 🔄 |
