@@ -59,14 +59,14 @@ func TestIntegrationMongoDBConnect(t *testing.T) {
 
 	// Cleanup - close connection
 	defer CloseConnection(ctx, connID)
-	
+
 	t.Logf("✓ Successfully connected to MongoDB with connection_id: %s", connID)
 }
 
 // TestIntegrationMongoDBCRUDWorkflow tests complete CRUD operations
 func TestIntegrationMongoDBCRUDWorkflow(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// 1. Connect
 	connectTool := NewConnectTool()
 	connectResult, err := connectTool.Execute(ctx, map[string]interface{}{
@@ -79,7 +79,7 @@ func TestIntegrationMongoDBCRUDWorkflow(t *testing.T) {
 
 	connID := connectResult.(map[string]interface{})["connection_id"].(string)
 	defer CloseConnection(ctx, connID)
-	
+
 	collectionName := fmt.Sprintf("test_users_%d", time.Now().Unix())
 	t.Logf("Using collection: %s", collectionName)
 

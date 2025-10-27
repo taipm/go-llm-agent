@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== MongoDB Tools Demo ===\n")
+	fmt.Println("=== MongoDB Tools Demo ===")
 
 	ctx := context.Background()
 

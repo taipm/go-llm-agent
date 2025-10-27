@@ -18,13 +18,13 @@ const defaultUserAgent = "GoLLMAgent/1.0"
 // Config contains configuration for built-in tools.
 // Use DefaultConfig() for sensible defaults or customize as needed.
 type Config struct {
-	File     FileConfig
-	Web      WebConfig
-	NoFile   bool // Skip registering file tools
-	NoWeb    bool // Skip registering web tools
-	NoTime   bool // Skip registering datetime tools
-	NoSystem bool // Skip registering system tools
-	NoMath   bool // Skip registering math tools
+	File      FileConfig
+	Web       WebConfig
+	NoFile    bool // Skip registering file tools
+	NoWeb     bool // Skip registering web tools
+	NoTime    bool // Skip registering datetime tools
+	NoSystem  bool // Skip registering system tools
+	NoMath    bool // Skip registering math tools
 	NoMongoDB bool // Skip registering MongoDB tools
 }
 
