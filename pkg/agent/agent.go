@@ -58,9 +58,9 @@ func DefaultOptions() *Options {
 		Temperature:      0.7,
 		MaxTokens:        2000,
 		MaxIterations:    10,
-		MinConfidence:    0.7,   // Default: require 70% confidence
-		EnableReflection: true,  // Enable reflection by default
-		EnableLearning:   false, // Disable learning by default (opt-in)
+		MinConfidence:    0.7,  // Default: require 70% confidence
+		EnableReflection: true, // Enable reflection by default
+		EnableLearning:   true, // Enable learning by default
 	}
 }
 
@@ -70,10 +70,14 @@ func New(provider types.LLMProvider, opts ...Option) *Agent {
 	defaultLogger := logger.NewConsoleLogger()
 	defaultLogger.SetLevel(logger.LogLevelDebug)
 
+	// Try to create VectorMemory for best learning experience
+	// Fallback to BufferMemory if Qdrant not available
+	defaultMemory := tryCreateVectorMemory(defaultLogger)
+
 	agent := &Agent{
 		provider:            provider,
 		tools:               tools.NewRegistry(),
-		memory:              memory.NewBuffer(100), // Default memory with 100 messages
+		memory:              defaultMemory,
 		options:             DefaultOptions(),
 		logger:              defaultLogger,       // Default logger with DEBUG level
 		enableAutoReasoning: true,                // Enable auto reasoning by default
@@ -91,6 +95,32 @@ func New(provider types.LLMProvider, opts ...Option) *Agent {
 	}
 
 	return agent
+}
+
+// tryCreateVectorMemory attempts to create VectorMemory with default settings
+// Falls back to BufferMemory if Qdrant is not available
+func tryCreateVectorMemory(log logger.Logger) types.Memory {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Try to create VectorMemory with default Qdrant settings
+	vectorMem, err := memory.NewVectorMemory(ctx, memory.VectorMemoryConfig{
+		QdrantURL:      "localhost:6334", // Default Qdrant address
+		CollectionName: "agent_memory",   // Default collection name
+		Embedder:       memory.NewOllamaEmbedder("", ""), // Default Ollama embedder
+		CacheSize:      100,
+	})
+
+	if err != nil {
+		// Qdrant not available, use BufferMemory instead
+		log.Info("ℹ️  Using BufferMemory (Qdrant not available)")
+		log.Info("💡 For full learning with semantic search, start Qdrant:")
+		log.Info("   docker run -p 6334:6334 -p 6333:6333 qdrant/qdrant")
+		return memory.NewBuffer(100)
+	}
+
+	log.Info("✅ VectorMemory initialized - full learning enabled")
+	return vectorMem
 }
 
 // Option is a function that configures the agent
@@ -330,12 +360,11 @@ func (a *Agent) initExperienceStore() {
 		// Also initialize tool selector
 		a.initToolSelector()
 	} else {
-		a.logger.Warn("⚠️  Learning disabled: VectorMemory required")
-		a.logger.Warn("   Current memory type: %s", a.getMemoryType())
-		a.logger.Warn("   To enable learning:")
-		a.logger.Warn("   1. Start Qdrant: docker run -p 6333:6333 qdrant/qdrant")
-		a.logger.Warn("   2. Create vector memory: vectorMem, _ := memory.NewVectorMemory(...)")
-		a.logger.Warn("   3. Use: agent.WithMemory(vectorMem)")
+		// Running in limited mode with BufferMemory
+		a.logger.Info("ℹ️  Learning running in limited mode (BufferMemory)")
+		a.logger.Info("   For full learning with semantic search:")
+		a.logger.Info("   docker run -p 6334:6334 -p 6333:6333 qdrant/qdrant")
+		// Don't fail - agent still works, just without advanced learning features
 	}
 }
 

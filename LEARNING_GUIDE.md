@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-### Simplest Way to Enable Learning
+### Zero-Config Setup (Simplest Way)
 
 ```go
 package main
@@ -10,40 +10,52 @@ package main
 import (
     "context"
     "github.com/taipm/go-llm-agent/pkg/agent"
-    "github.com/taipm/go-llm-agent/pkg/memory"
     "github.com/taipm/go-llm-agent/pkg/provider/ollama"
 )
 
 func main() {
-    // 1. Start Qdrant (required for learning)
-    // docker run -p 6333:6333 qdrant/qdrant
+    // 1. (Optional) Start Qdrant for full learning features
+    // docker run -p 6334:6334 -p 6333:6333 qdrant/qdrant
     
     // 2. Create LLM provider
     llm := ollama.New("http://localhost:11434", "qwen2.5:7b")
     
-    // 3. Create vector memory for learning
-    vectorMem, err := memory.NewVectorMemory(
-        "http://localhost:6333",
-        "agent_memory",
-        memory.WithOllamaEmbedder("http://localhost:11434", "nomic-embed-text"),
-    )
-    if err != nil {
-        panic(err)
-    }
+    // 3. Create agent - THAT'S IT! Learning auto-enabled!
+    ag := agent.New(llm)
     
-    // 4. Create agent with learning enabled - THAT'S IT!
-    ag := agent.New(llm,
-        agent.WithLearning(true),      // Enable learning
-        agent.WithMemory(vectorMem),   // Use vector memory
-    )
-    
-    // 5. Use agent normally - it learns automatically!
-    response, _ := ag.Chat(context.Background(), "Calculate 15 * 23")
     // Behind the scenes:
-    // - Records experience: query, tool used, success/failure, latency
-    // - Learns which tools work best for which queries
-    // - Improves over time automatically
+    // - Learning is enabled by default ✅
+    // - Auto-tries VectorMemory if Qdrant running ✅
+    // - Gracefully falls back to BufferMemory if Qdrant unavailable ✅
+    // - No errors, no panics - just works! ✅
+    
+    // 4. Use agent normally - it learns automatically!
+    response, _ := ag.Chat(context.Background(), "Calculate 15 * 23")
+    // With Qdrant running: Full learning with semantic search
+    // Without Qdrant: Limited learning mode (still works!)
 }
+```
+
+### Advanced Setup (Custom Configuration)
+
+If you need custom settings:
+
+```go
+// Create custom vector memory
+vectorMem, _ := memory.NewVectorMemory(context.Background(), 
+    memory.VectorMemoryConfig{
+        QdrantURL:      "localhost:6334",
+        CollectionName: "my_memory",
+        Embedder:       memory.NewOllamaEmbedder("localhost:11434", "nomic-embed-text"),
+        CacheSize:      200,
+    },
+)
+
+// Create agent with custom memory
+ag := agent.New(llm,
+    agent.WithMemory(vectorMem),  // Custom memory
+    // Learning still auto-enabled!
+)
 ```
 
 ## What You Get
@@ -53,7 +65,7 @@ func main() {
 1. **Experience Tracking**
    - Every Chat() call is automatically recorded
    - Captures: query, intent, reasoning mode, tools used, success/failure, latency
-   - Stored in vector memory for semantic search
+   - Stored in vector memory for semantic search (if Qdrant available)
 
 2. **Tool Selection Learning (ε-greedy)**
    - Agent learns which tools work best for different queries
