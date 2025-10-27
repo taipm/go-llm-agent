@@ -3,20 +3,31 @@ package agent
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/taipm/go-llm-agent/pkg/builtin"
+	"github.com/taipm/go-llm-agent/pkg/logger"
 	"github.com/taipm/go-llm-agent/pkg/memory"
-	"github.com/taipm/go-llm-agent/pkg/tool"
+	"github.com/taipm/go-llm-agent/pkg/reasoning"
+	"github.com/taipm/go-llm-agent/pkg/tools"
 	"github.com/taipm/go-llm-agent/pkg/types"
 )
 
-// Agent orchestrates LLM, tools, and memory
+// Agent orchestrates LLM, tools, and memory with automatic reasoning
 type Agent struct {
 	provider types.LLMProvider
-	tools    *tool.Registry
+	tools    *tools.Registry
 	memory   types.Memory
 	options  *Options
-	logger   Logger
+	logger   logger.Logger
+
+	// Reasoning engines (lazy initialized)
+	reactAgent *reasoning.ReActAgent
+	cotAgent   *reasoning.CoTAgent
+
+	// Auto-reasoning settings
+	enableAutoReasoning bool
 }
 
 // Options contains configuration for the agent
@@ -39,12 +50,17 @@ func DefaultOptions() *Options {
 
 // New creates a new agent with default memory (100 messages) and all builtin tools
 func New(provider types.LLMProvider, opts ...Option) *Agent {
+	// Create default logger with DEBUG level for detailed reasoning
+	defaultLogger := logger.NewConsoleLogger()
+	defaultLogger.SetLevel(logger.LogLevelDebug)
+
 	agent := &Agent{
-		provider: provider,
-		tools:    tool.NewRegistry(),
-		memory:   memory.NewBuffer(100), // Default memory with 100 messages
-		options:  DefaultOptions(),
-		logger:   NewConsoleLogger(), // Default logger
+		provider:            provider,
+		tools:               tools.NewRegistry(),
+		memory:              memory.NewBuffer(100), // Default memory with 100 messages
+		options:             DefaultOptions(),
+		logger:              defaultLogger, // Default logger with DEBUG level
+		enableAutoReasoning: true,          // Enable auto reasoning by default
 	}
 
 	// Load all builtin tools by default
@@ -92,14 +108,14 @@ func WithMaxTokens(max int) Option {
 }
 
 // WithLogger sets a custom logger
-func WithLogger(logger Logger) Option {
+func WithLogger(log logger.Logger) Option {
 	return func(a *Agent) {
-		a.logger = logger
+		a.logger = log
 	}
 }
 
 // WithLogLevel sets the log level
-func WithLogLevel(level LogLevel) Option {
+func WithLogLevel(level logger.LogLevel) Option {
 	return func(a *Agent) {
 		a.logger.SetLevel(level)
 	}
@@ -108,7 +124,21 @@ func WithLogLevel(level LogLevel) Option {
 // DisableLogging disables all logging
 func DisableLogging() Option {
 	return func(a *Agent) {
-		a.logger = &NoopLogger{}
+		a.logger = &logger.NoopLogger{}
+	}
+}
+
+// WithAutoReasoning enables/disables automatic reasoning detection
+func WithAutoReasoning(enabled bool) Option {
+	return func(a *Agent) {
+		a.enableAutoReasoning = enabled
+	}
+}
+
+// WithoutAutoReasoning disables automatic reasoning (use simple LLM calls only)
+func WithoutAutoReasoning() Option {
+	return func(a *Agent) {
+		a.enableAutoReasoning = false
 	}
 }
 
@@ -116,30 +146,50 @@ func DisableLogging() Option {
 func WithoutBuiltinTools() Option {
 	return func(a *Agent) {
 		// Clear the tools registry
-		a.tools = tool.NewRegistry()
+		a.tools = tools.NewRegistry()
 	}
 }
 
 // AddTool registers a tool with the agent
-func (a *Agent) AddTool(t types.Tool) error {
+func (a *Agent) AddTool(t tools.Tool) error {
 	return a.tools.Register(t)
 }
 
 // RemoveTool unregisters a tool
-func (a *Agent) RemoveTool(name string) error {
-	return a.tools.Unregister(name)
+func (a *Agent) RemoveTool(name string) {
+	a.tools.Unregister(name)
 }
 
 // ToolCount returns the number of registered tools
 func (a *Agent) ToolCount() int {
-	return a.tools.Size()
+	return a.tools.Count()
 }
 
 // Chat sends a message and returns the response
 func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 	// Log user message
-	LogUserMessage(a.logger, message)
+	logger.LogUserMessage(a.logger, message)
 
+	// Check if auto-reasoning is enabled
+	if a.enableAutoReasoning {
+		approach := a.analyzeQuery(message)
+		a.logger.Debug("🧠 Query analysis: %s approach selected", approach)
+
+		switch approach {
+		case "cot":
+			return a.chatWithCoT(ctx, message)
+		case "react":
+			return a.chatWithReAct(ctx, message)
+		}
+		// Fall through to simple chat if "simple"
+	}
+
+	// Simple chat without reasoning
+	return a.chatSimple(ctx, message)
+}
+
+// chatSimple performs simple LLM chat with tool calling (original behavior)
+func (a *Agent) chatSimple(ctx context.Context, message string) (string, error) {
 	// Add user message to memory if available
 	userMsg := types.Message{
 		Role:    types.RoleUser,
@@ -174,8 +224,8 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 	}
 
 	// Add tools if available
-	if a.tools.Size() > 0 {
-		chatOpts.Tools = a.tools.GetDefinitions()
+	if a.tools.Count() > 0 {
+		chatOpts.Tools = a.tools.ToToolDefinitions()
 	}
 
 	// Run agent loop with tool calling
@@ -186,7 +236,7 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 	}
 
 	// Log final response
-	LogResponse(a.logger, response)
+	logger.LogResponse(a.logger, response)
 
 	// Note: runLoop already saves the final response to memory
 	return response, nil
@@ -198,10 +248,10 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 	copy(currentMessages, messages)
 
 	for iteration := 0; iteration < a.options.MaxIterations; iteration++ {
-		LogIteration(a.logger, iteration, a.options.MaxIterations)
+		logger.LogIteration(a.logger, iteration, a.options.MaxIterations)
 
 		// Log thinking
-		LogThinking(a.logger)
+		logger.LogThinking(a.logger)
 
 		// Call LLM
 		response, err := a.provider.Chat(ctx, currentMessages, opts)
@@ -228,7 +278,7 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 		}
 
 		// Log tool calls
-		a.logger.Info("🔧 Agent wants to call %d tool(s): %s", len(response.ToolCalls), FormatToolCalls(response.ToolCalls))
+		a.logger.Info("🔧 Agent wants to call %d tool(s): %s", len(response.ToolCalls), logger.FormatToolCalls(response.ToolCalls))
 
 		// Execute tool calls
 		assistantMsg := types.Message{
@@ -249,7 +299,7 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 		// Execute each tool
 		for _, toolCall := range response.ToolCalls {
 			// Log tool call
-			LogToolCall(a.logger, toolCall.Function.Name, toolCall.Function.Arguments)
+			logger.LogToolCall(a.logger, toolCall.Function.Name, toolCall.Function.Arguments)
 
 			result, err := a.tools.Execute(ctx, toolCall.Function.Name, toolCall.Function.Arguments)
 			if err != nil {
@@ -257,9 +307,9 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 				result = map[string]interface{}{
 					"error": err.Error(),
 				}
-				LogToolResult(a.logger, toolCall.Function.Name, false, err)
+				logger.LogToolResult(a.logger, toolCall.Function.Name, false, err)
 			} else {
-				LogToolResult(a.logger, toolCall.Function.Name, true, result)
+				logger.LogToolResult(a.logger, toolCall.Function.Name, true, result)
 			}
 
 			// Add tool result to messages
@@ -338,8 +388,8 @@ func (a *Agent) ChatStream(ctx context.Context, message string, handler types.St
 	}
 
 	// Add tools if available
-	if a.tools.Size() > 0 {
-		chatOpts.Tools = a.tools.GetDefinitions()
+	if a.tools.Count() > 0 {
+		chatOpts.Tools = a.tools.ToToolDefinitions()
 	}
 
 	// Accumulate full response for memory
@@ -425,4 +475,174 @@ func (a *Agent) ChatStream(ctx context.Context, message string, handler types.St
 	}
 
 	return nil
+}
+
+// analyzeQuery determines which reasoning approach to use
+func (a *Agent) analyzeQuery(query string) string {
+	queryLower := strings.ToLower(query)
+
+	// Priority 1: Explicit tool usage requests (highest priority)
+	explicitToolKeywords := []string{
+		"use tool", "using tool", "call tool",
+		"use calculator", "use the calculator",
+		"search the web", "search web", "web search",
+		"fetch from", "scrape from",
+	}
+	for _, keyword := range explicitToolKeywords {
+		if strings.Contains(queryLower, keyword) {
+			return "react"
+		}
+	}
+
+	// Priority 2: Check for Chain-of-Thought indicators
+	if needsCoT(queryLower) {
+		return "cot"
+	}
+
+	// Priority 3: Check for ReAct/tool usage indicators
+	if a.tools.Count() > 0 && needsTools(queryLower) {
+		return "react"
+	}
+
+	// Default to simple chat
+	return "simple"
+}
+
+// needsCoT detects if query requires step-by-step reasoning
+func needsCoT(query string) bool {
+	// Mathematical problem indicators
+	mathIndicators := []string{
+		"calculate", "compute", "solve", "what is",
+		"how many", "how much", "if.*then",
+	}
+
+	// Multi-step reasoning indicators
+	reasoningIndicators := []string{
+		"step by step", "explain how", "why",
+		"prove", "show that", "derive",
+	}
+
+	// Check indicators
+	for _, indicator := range mathIndicators {
+		if strings.Contains(query, indicator) {
+			return true
+		}
+	}
+
+	for _, indicator := range reasoningIndicators {
+		if strings.Contains(query, indicator) {
+			return true
+		}
+	}
+
+	// Multiple numbers suggest calculation
+	numberPattern := regexp.MustCompile(`\d+(\.\d+)?`)
+	numbers := numberPattern.FindAllString(query, -1)
+	if len(numbers) >= 2 {
+		return true
+	}
+
+	return false
+}
+
+// needsTools detects if query requires tool usage
+func needsTools(query string) bool {
+	// Tool usage indicators
+	toolIndicators := []string{
+		"using", "with", "tool", "calculator",
+		"search", "find", "look up", "get",
+	}
+
+	// Action verbs suggesting tool usage
+	actionVerbs := []string{
+		"calculate", "compute", "search", "find",
+		"fetch", "retrieve", "get", "check",
+	}
+
+	for _, indicator := range toolIndicators {
+		if strings.Contains(query, indicator) {
+			return true
+		}
+	}
+
+	for _, verb := range actionVerbs {
+		if strings.Contains(query, verb) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// chatWithCoT uses Chain-of-Thought reasoning
+func (a *Agent) chatWithCoT(ctx context.Context, message string) (string, error) {
+	a.logger.Info("🧠 Using Chain-of-Thought reasoning")
+
+	// Lazy initialize CoT agent
+	if a.cotAgent == nil {
+		a.cotAgent = reasoning.NewCoTAgent(a.provider, a.memory, 10)
+		a.cotAgent.WithLogger(a.logger)
+	}
+
+	// Think through the problem
+	answer, err := a.cotAgent.Think(ctx, message)
+	if err != nil {
+		a.logger.Warn("⚠️  CoT reasoning failed, falling back to simple chat: %v", err)
+		return a.chatSimple(ctx, message)
+	}
+
+	// Save to memory
+	if a.memory != nil {
+		a.cotAgent.SaveToMemory(ctx)
+	}
+
+	return answer, nil
+}
+
+// chatWithReAct uses ReAct pattern with tools
+func (a *Agent) chatWithReAct(ctx context.Context, message string) (string, error) {
+	a.logger.Info("🔧 Using ReAct reasoning with tools")
+
+	// Lazy initialize ReAct agent
+	if a.reactAgent == nil {
+		allTools := a.tools.All()
+		a.reactAgent = reasoning.NewReActAgent(a.provider, a.memory, a.options.MaxIterations)
+		a.reactAgent.WithLogger(a.logger)
+		a.reactAgent.WithTools(allTools...)
+	}
+
+	// Run ReAct loop
+	var finalAnswer string
+	for i := 0; i < a.options.MaxIterations; i++ {
+		step, err := a.reactAgent.Think(ctx, message)
+		if err != nil {
+			a.logger.Warn("⚠️  ReAct iteration %d failed: %v", i+1, err)
+			return "", fmt.Errorf("ReAct reasoning failed: %w", err)
+		}
+
+		// Check if we have final answer
+		if step.Action == "Answer" {
+			finalAnswer = step.Observation
+			a.logger.Info("✅ ReAct completed in %d iterations", i+1)
+			break
+		}
+
+		// Log iteration
+		a.logger.Debug("   Iteration %d: %s → %s", i+1, step.Action, step.Observation)
+	}
+
+	if finalAnswer == "" {
+		a.logger.Warn("⚠️  ReAct max iterations reached, falling back to simple chat")
+		return a.chatSimple(ctx, message)
+	}
+
+	// Save to memory
+	if a.memory != nil {
+		userMsg := types.Message{Role: types.RoleUser, Content: message}
+		assistantMsg := types.Message{Role: types.RoleAssistant, Content: finalAnswer}
+		a.memory.Add(userMsg)
+		a.memory.Add(assistantMsg)
+	}
+
+	return finalAnswer, nil
 }

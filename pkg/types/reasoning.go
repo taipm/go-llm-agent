@@ -26,6 +26,7 @@ type CoTStep struct {
 	Description string      `json:"description"` // "Calculate speed in km/h"
 	Reasoning   string      `json:"reasoning"`   // "Using formula: distance / time"
 	Result      interface{} `json:"result"`      // Intermediate result
+	Timestamp   time.Time   `json:"timestamp"`
 }
 
 // CoTChain represents a complete chain-of-thought reasoning process
@@ -34,6 +35,8 @@ type CoTChain struct {
 	Steps      []CoTStep `json:"steps"`      // Step-by-step reasoning
 	Answer     string    `json:"answer"`     // Final answer
 	Confidence float64   `json:"confidence"` // 0.0 to 1.0
+	StartTime  time.Time `json:"start_time"`
+	EndTime    time.Time `json:"end_time"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 

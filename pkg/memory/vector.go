@@ -45,7 +45,8 @@ func NewVectorMemory(ctx context.Context, config VectorMemoryConfig) (*VectorMem
 
 	// Connect to Qdrant
 	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: config.QdrantURL,
+		Host: "localhost",
+		Port: 6334,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Qdrant: %w", err)

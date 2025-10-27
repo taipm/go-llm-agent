@@ -37,3 +37,7 @@ builtin_tools
 examples/simple/simple
 examples/agent_with_logging/agent_with_logging
 examples/standalone_demo/standalone-demo
+examples/*/qdrant_storage/
+examples/simple_agent/simple_agent
+examples/cot_reasoning/cot_reasoning
+examples/react_with_tools/react_with_tools

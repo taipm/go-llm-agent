@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 	"github.com/taipm/go-llm-agent/pkg/reasoning"
@@ -14,6 +15,10 @@ import (
 )
 
 func main() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Printf("⚠️  No .env file found, using environment variables")
+	}
 	fmt.Println("=== ReAct Agent with Vector Memory Example ===\n")
 
 	// 1. Setup LLM Provider (Ollama)
@@ -31,10 +36,25 @@ func main() {
 	if useVectorMemory {
 		fmt.Println("🧠 Setting up Vector Memory with Qdrant...")
 		ctx := context.Background()
+
+		// Get Qdrant configuration from environment
+		qdrantURL := os.Getenv("QDRANT_URL")
+		if qdrantURL == "" {
+			qdrantURL = "localhost:6334"
+		}
+		collectionName := os.Getenv("QDRANT_COLLECTION")
+		if collectionName == "" {
+			collectionName = "react_agent_demo"
+		}
+		embeddingModel := os.Getenv("EMBEDDING_MODEL")
+		if embeddingModel == "" {
+			embeddingModel = "nomic-embed-text"
+		}
+
 		vectorMem, err := memory.NewVectorMemory(ctx, memory.VectorMemoryConfig{
-			QdrantURL:      "localhost:6334",
-			CollectionName: "react_agent_demo",
-			Embedder:       memory.NewOllamaEmbedder("", "nomic-embed-text"),
+			QdrantURL:      qdrantURL,
+			CollectionName: collectionName,
+			Embedder:       memory.NewOllamaEmbedder("", embeddingModel),
 			CacheSize:      50,
 		})
 		if err != nil {
@@ -70,7 +90,7 @@ func main() {
 		fmt.Printf(strings.Repeat("=", 70) + "\n\n")
 
 		ctx := context.Background()
-		
+
 		// Use ReAct to solve
 		answer, err := agent.Solve(ctx, question)
 		if err != nil {
@@ -101,7 +121,7 @@ func main() {
 
 		if vectorMem, ok := mem.(types.AdvancedMemory); ok {
 			ctx := context.Background()
-			
+
 			// Search for math-related memories
 			fmt.Println("Searching for: 'mathematics calculations'")
 			results, err := vectorMem.SearchSemantic(ctx, "mathematics calculations", 3)
