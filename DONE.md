@@ -528,15 +528,136 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 **Commit**: a8ce766
 **Status**: 5/5 MongoDB tools, 7 tests passing, 200+ total tests passing
 
-### Complete Built-in Tools Summary (Phase 1-5)
+### Phase 6: Network Tools ✅ COMPLETED
+**Duration**: 1 day | **Lines**: ~1,200 lines | **Status**: COMPLETED (Oct 27, 2025)
 
-**Total Tools**: 20 (100% Phase 1 complete)
+#### Implementation
+- [x] `network_dns_lookup` (218 lines) - DNS record queries
+  - ✅ Using miekg/dns v1.1.68 (professional DNS library)
+  - ✅ Support A, AAAA, MX, TXT, NS, CNAME, SOA, PTR records
+  - ✅ Custom DNS servers (Google DNS, Cloudflare, OpenDNS)
+  - ✅ TCP/UDP support with TTL information
+  - ✅ Reverse DNS (PTR) lookups
+
+- [x] `network_ping` (189 lines) - ICMP ping and TCP connectivity
+  - ✅ Using go-ping/ping v1.2.0
+  - ✅ ICMP ping with packet loss and RTT statistics
+  - ✅ TCP port availability testing
+  - ✅ Connection latency measurement
+
+- [x] `network_whois_lookup` (146 lines) - WHOIS queries
+  - ✅ Using likexian/whois v1.15.6 + whois-parser v1.24.20
+  - ✅ Domain registration information
+  - ✅ Registrar, registrant, admin, tech contacts
+  - ✅ Nameservers and domain status
+
+- [x] `network_ssl_cert_check` (159 lines) - SSL/TLS certificate validation
+  - ✅ Using crypto/tls (standard library)
+  - ✅ Certificate chain inspection
+  - ✅ Expiration checking with warnings
+  - ✅ Subject Alternative Names (SANs)
+  - ✅ TLS version and cipher suite detection
+
+- [x] `network_ip_info` (223 lines) - IP geolocation
+  - ✅ Using oschwald/geoip2-golang v1.13.0
+  - ✅ IP version and privacy status
+  - ✅ Reverse DNS lookups
+  - ✅ Geolocation (country, city, coordinates) with GeoIP2 database
+  - ✅ ISP and ASN information
+
+- [x] Documentation: `pkg/tools/network/README.md` (300+ lines)
+  - ✅ Comprehensive usage guide for all 5 network tools
+  - ✅ GeoIP2 database setup instructions
+  - ✅ Troubleshooting section
+  - ✅ Security considerations
+
+- [x] Builtin integration
+  - ✅ Added CategoryNetwork to tool categories
+  - ✅ NetworkConfig in builtin.Config
+  - ✅ All 5 tools loaded automatically by default
+  - ✅ Tool count: 20 → 24 (25 with GeoIP database)
+
+**Dependencies**:
+- github.com/miekg/dns v1.1.68 (DNS queries)
+- github.com/go-ping/ping v1.2.0 (ICMP ping)
+- github.com/likexian/whois v1.15.6 + whois-parser v1.24.20 (WHOIS)
+- github.com/oschwald/geoip2-golang v1.13.0 (IP geolocation)
+
+**Commit**: 31bef3b
+**Status**: 5/5 network tools, auto-loaded by default
+
+### Phase 7: Gmail Tools ✅ COMPLETED
+**Duration**: 1 day | **Lines**: ~1,300 lines | **Status**: COMPLETED (Oct 27, 2025)
+
+#### Implementation
+- [x] OAuth2 Authentication Infrastructure
+  - ✅ `auth.go` (165 lines) - OAuth2 authentication helper
+  - ✅ Token caching (credentials.json, token.json)
+  - ✅ Interactive authorization flow for first-time setup
+  - ✅ Automatic token refresh
+  - ✅ Credential validation
+
+- [x] `gmail_send` (176 lines) - Send emails via Gmail API
+  - ✅ Support for to, cc, bcc recipients
+  - ✅ HTML and plain text email bodies
+  - ✅ RFC 2822 compliant message construction
+  - ✅ Base64url encoding for Gmail API
+  - ✅ Returns message_id and thread_id
+
+- [x] `gmail_read` (203 lines) - Read email messages by ID
+  - ✅ Full message content with headers and body
+  - ✅ Three format options: full, metadata, minimal
+  - ✅ Recursive multipart message parsing
+  - ✅ Attachment metadata extraction
+
+- [x] `gmail_list` (150 lines) - List emails with filters and pagination
+  - ✅ Gmail search query support
+  - ✅ Label filtering (INBOX, UNREAD, etc.)
+  - ✅ Configurable max results (up to 500)
+  - ✅ Pagination with next_page_token
+
+- [x] `gmail_search` (184 lines) - Advanced email search
+  - ✅ Full Gmail search syntax (from:, to:, subject:, is:unread, etc.)
+  - ✅ Optional metadata extraction (from, to, subject, date)
+  - ✅ Up to 100 results per search
+
+- [x] Documentation: `pkg/tools/gmail/README.md` (280+ lines)
+  - ✅ OAuth2 setup guide (Google Cloud Console steps)
+  - ✅ Tool usage examples for all 4 tools
+  - ✅ Gmail search syntax reference
+  - ✅ Security considerations
+  - ✅ Comprehensive troubleshooting guide
+
+- [x] Builtin integration
+  - ✅ Added CategoryEmail to tool categories (8 categories total)
+  - ✅ GmailConfig in builtin.Config
+  - ✅ **NOT loaded by default** (NoGmail: true)
+  - ✅ GetGmailTools() helper for manual access
+  - ✅ Tool count: 24 default (+ 4 Gmail if enabled)
+
+**Dependencies**:
+- google.golang.org/api v0.253.0 (Official Google API client)
+- golang.org/x/oauth2 v0.32.0 (OAuth2 authentication)
+
+**Design Decision**:
+- Gmail tools NOT auto-loaded by default (requires OAuth2 credentials setup)
+- Set `NoGmail: false` in builtin.Config to enable
+- Use `GetGmailTools()` for manual access
+
+**Commit**: 937037f
+**Status**: 4/4 Gmail tools, opt-in by design
+
+### Complete Built-in Tools Summary (Phase 1-7)
+
+**Total Tools**: 24 default + 4 Gmail (28 total, 100% Phase 1 complete)
 - File tools: 4 (read, list, write, delete)
 - Web tools: 3 (fetch, post, scrape)
 - DateTime tools: 3 (now, format, calc)
 - System tools: 3 (info, processes, apps)
 - Math tools: 2 (calculate, stats)
 - Database tools: 5 (MongoDB: connect, find, insert, update, delete)
+- Network tools: 5 (dns, ping, whois, ssl, ip_info) - **Auto-loaded**
+- Email tools: 4 (Gmail: send, read, list, search) - **Opt-in only**
 
 **Test Coverage**: 200+ total tests passing
 - File: 24 tests
@@ -545,15 +666,17 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 - System: 26 tests
 - Math: 2 tests (integration tests, library logic tested separately)
 - MongoDB: 7 tests
+- Network: 5 tools (integration tested)
+- Gmail: 4 tools (integration tested)
 - Builtin: 17 tests
 - Other packages: 55+ tests
 
 **Code Statistics**:
-- Production code: ~3,500 lines
-- Test code: ~1,900 lines
-- Examples: ~600 lines
-- Documentation: ~1,000 lines
-- **Total**: ~7,000 lines
+- Production code: ~5,200 lines
+- Test code: ~2,100 lines
+- Examples: ~800 lines
+- Documentation: ~1,600 lines
+- **Total**: ~9,700 lines
 
 **Dependencies Added**:
 - github.com/PuerkitoBio/goquery v1.10.3 (web scraping)
@@ -561,6 +684,12 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 - github.com/Knetic/govaluate v3.0.0 (expression evaluation)
 - gonum.org/v1/gonum v0.16.0 (statistical operations)
 - go.mongodb.org/mongo-driver v1.17.4 (MongoDB driver)
+- github.com/miekg/dns v1.1.68 (DNS queries)
+- github.com/go-ping/ping v1.2.0 (ICMP ping)
+- github.com/likexian/whois v1.15.6 + whois-parser v1.24.20 (WHOIS)
+- github.com/oschwald/geoip2-golang v1.13.0 (IP geolocation)
+- google.golang.org/api v0.253.0 (Google Gmail API)
+- golang.org/x/oauth2 v0.32.0 (OAuth2 authentication)
 
 **Security Features**:
 - ✅ Path validation (directory traversal prevention)
@@ -572,7 +701,8 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 - ✅ Expression evaluation whitelist (safe math functions only)
 - ✅ MongoDB empty filter prevention (delete safety)
 - ✅ Connection pool limits (max 10 MongoDB connections)
-- ✅ Read-only by default (15/20 safe tools = 75%)
+- ✅ OAuth2 credential protection (Gmail tools)
+- ✅ Read-only by default (19/28 safe tools = 68%)
 
 **Commits Timeline**:
 - e50e6b3: File tools (Phase 1)
@@ -583,6 +713,8 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 - 6c26f44: System processes & apps tools (Phase 3)
 - cc7b935, 561fcd4, a239c80: Math tools (Phase 4)
 - a8ce766: MongoDB tools (Phase 5)
+- 31bef3b: Network tools (Phase 6)
+- 937037f: Gmail tools (Phase 7)
 
 ---
 
@@ -649,6 +781,8 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 - ✅ Built-in Tools Phase 1-3 Complete (File, Web, DateTime, System)
 - ✅ Built-in Tools Phase 4 Complete (Math)
 - ✅ Built-in Tools Phase 5 Complete (MongoDB)
+- ✅ Built-in Tools Phase 6 Complete (Network)
+- ✅ Built-in Tools Phase 7 Complete (Gmail)
 - ⏸️ Sprint 3 Day 5 Pending (v0.2.0 Release)
 
 ### Quality Metrics
@@ -656,9 +790,10 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 - ✅ All Integration Tests Pass (200+ tests)
 - ✅ 3 Providers Working (Ollama, OpenAI, Gemini)
 - ✅ 9 Working Examples
-- ✅ 20 Built-in Tools (6 categories)
+- ✅ 28 Built-in Tools (8 categories: File, Web, DateTime, System, Math, Database, Network, Email)
 - ✅ 100% API Uniformity
 - ✅ Professional Libraries Integration
+- ✅ 24 tools auto-loaded by default + 4 Gmail tools (opt-in)
 
 ---
 
