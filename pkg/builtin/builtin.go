@@ -9,6 +9,7 @@ import (
 	"github.com/taipm/go-llm-agent/pkg/tools/datetime"
 	"github.com/taipm/go-llm-agent/pkg/tools/file"
 	mathtools "github.com/taipm/go-llm-agent/pkg/tools/math"
+	"github.com/taipm/go-llm-agent/pkg/tools/network"
 	"github.com/taipm/go-llm-agent/pkg/tools/system"
 	"github.com/taipm/go-llm-agent/pkg/tools/web"
 )
@@ -20,8 +21,10 @@ const defaultUserAgent = "GoLLMAgent/1.0"
 type Config struct {
 	File      FileConfig
 	Web       WebConfig
+	Network   NetworkConfig
 	NoFile    bool // Skip registering file tools
 	NoWeb     bool // Skip registering web tools
+	NoNetwork bool // Skip registering network tools
 	NoTime    bool // Skip registering datetime tools
 	NoSystem  bool // Skip registering system tools
 	NoMath    bool // Skip registering math tools
@@ -40,6 +43,15 @@ type WebConfig struct {
 	Fetch  web.Config
 	Post   web.PostConfig
 	Scrape web.ScrapeConfig
+}
+
+// NetworkConfig contains network tool configurations
+type NetworkConfig struct {
+	DNS    network.DNSConfig
+	Ping   network.PingConfig
+	Whois  network.WhoisConfig
+	SSL    network.SSLConfig
+	IPInfo network.IPInfoConfig
 }
 
 // DefaultConfig returns sensible default configuration for all built-in tools.
@@ -89,11 +101,19 @@ func DefaultConfig() Config {
 				RateLimit:       1 * time.Second,
 			},
 		},
-		NoFile:   false,
-		NoWeb:    false,
-		NoTime:   false,
-		NoSystem: false,
-		NoMath:   false,
+		Network: NetworkConfig{
+			DNS:    network.DefaultDNSConfig,
+			Ping:   network.DefaultPingConfig,
+			Whois:  network.DefaultWhoisConfig,
+			SSL:    network.DefaultSSLConfig,
+			IPInfo: network.DefaultIPInfoConfig,
+		},
+		NoFile:    false,
+		NoWeb:     false,
+		NoNetwork: false,
+		NoTime:    false,
+		NoSystem:  false,
+		NoMath:    false,
 	}
 }
 
@@ -133,6 +153,19 @@ func GetRegistryWithConfig(config Config) *tools.Registry {
 		registry.Register(web.NewFetchTool(config.Web.Fetch))
 		registry.Register(web.NewPostTool(config.Web.Post))
 		registry.Register(web.NewScrapeTool(config.Web.Scrape))
+	}
+
+	// Register Network tools
+	if !config.NoNetwork {
+		registry.Register(network.NewDNSLookupTool(config.Network.DNS))
+		registry.Register(network.NewPingTool(config.Network.Ping))
+		registry.Register(network.NewWhoisLookupTool(config.Network.Whois))
+		registry.Register(network.NewSSLCertTool(config.Network.SSL))
+		// IPInfo tool requires error handling during creation (GeoIP database)
+		if ipInfoTool, err := network.NewIPInfoTool(config.Network.IPInfo); err == nil {
+			registry.Register(ipInfoTool)
+		}
+		// Note: If GeoIP database is not configured, IP info tool will be skipped
 	}
 
 	// Register DateTime tools
@@ -255,7 +288,33 @@ func GetMongoDBTools() []tools.Tool {
 	}
 }
 
+// GetNetworkTools returns all network-related built-in tools with custom config.
+// If config is nil, uses DefaultConfig().
+// Note: IP info tool may be excluded if GeoIP database is not configured.
+func GetNetworkTools(config *NetworkConfig) []tools.Tool {
+	if config == nil {
+		cfg := DefaultConfig()
+		config = &cfg.Network
+	}
+
+	tools := []tools.Tool{
+		network.NewDNSLookupTool(config.DNS),
+		network.NewPingTool(config.Ping),
+		network.NewWhoisLookupTool(config.Whois),
+		network.NewSSLCertTool(config.SSL),
+	}
+
+	// Add IP info tool if it can be created successfully
+	if ipInfoTool, err := network.NewIPInfoTool(config.IPInfo); err == nil {
+		tools = append(tools, ipInfoTool)
+	}
+
+	return tools
+}
+
 // ToolCount returns the total number of built-in tools available.
 func ToolCount() int {
-	return 20 // 4 file + 3 web + 3 datetime + 3 system + 2 math + 5 mongodb
+	return 24 // 4 file + 3 web + 4 network + 3 datetime + 3 system + 2 math + 5 mongodb
+	// Note: Network tools count is 4 by default (DNS, Ping, Whois, SSL)
+	// IP info tool (+1) is only included if GeoIP database is configured
 }

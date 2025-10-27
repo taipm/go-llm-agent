@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Network Tools Package** (5 professional network diagnostic tools)
+  - `network_dns_lookup` - DNS record queries using `miekg/dns` library
+    * Support for A, AAAA, MX, TXT, NS, CNAME, SOA, PTR records
+    * Custom DNS servers (Google DNS, Cloudflare, OpenDNS by default)
+    * TCP/UDP support with TTL information
+    * Reverse DNS (PTR) lookups
+  - `network_ping` - ICMP ping and TCP connectivity checks using `go-ping/ping`
+    * ICMP ping with packet loss and RTT statistics
+    * TCP port availability testing
+    * Connection latency measurement
+  - `network_whois_lookup` - WHOIS queries using `likexian/whois-parser`
+    * Domain registration information
+    * Registrar, registrant, admin, tech contacts
+    * Nameservers and domain status
+  - `network_ssl_cert_check` - SSL/TLS certificate validation using `crypto/tls`
+    * Certificate chain inspection
+    * Expiration checking with warnings
+    * Subject Alternative Names (SANs)
+    * TLS version and cipher suite detection
+  - `network_ip_info` - IP geolocation using `oschwald/geoip2-golang`
+    * IP version and privacy status
+    * Reverse DNS lookups
+    * Geolocation (country, city, coordinates) with GeoIP2 database
+    * ISP and ASN information
+  - All network tools loaded automatically by default
+  - Professional libraries used: miekg/dns, go-ping/ping, likexian/whois-parser, oschwald/geoip2-golang
+  - Comprehensive README with examples and troubleshooting
+  - Updated ToolCount from 20 to 24 (25 with GeoIP database)
+
+### Changed
+
+- Updated builtin tools configuration to include NetworkConfig
+- Added CategoryNetwork to tool categories
+- Enhanced builtin.GetRegistry() to auto-load network tools
+
 ## [0.1.1] - 2025-01-27
 
 ### Added

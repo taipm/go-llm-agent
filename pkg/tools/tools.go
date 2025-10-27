@@ -56,6 +56,9 @@ const (
 
 	// CategoryDatabase represents tools that interact with databases
 	CategoryDatabase ToolCategory = "database"
+
+	// CategoryNetwork represents tools that perform network operations (DNS, ping, etc.)
+	CategoryNetwork ToolCategory = "network"
 )
 
 // BaseTool provides common functionality for all tools
