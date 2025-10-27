@@ -12,11 +12,11 @@ import (
 // ReActAgent implements the ReAct (Reasoning + Acting) pattern
 // Paper: https://arxiv.org/abs/2210.03629
 type ReActAgent struct {
-	provider  types.LLMProvider
-	memory    types.Memory
-	steps     []types.ReActStep
-	maxSteps  int
-	verbose   bool
+	provider types.LLMProvider
+	memory   types.Memory
+	steps    []types.ReActStep
+	maxSteps int
+	verbose  bool
 }
 
 // NewReActAgent creates a new ReAct agent
@@ -51,7 +51,7 @@ func (r *ReActAgent) ClearSteps() {
 // buildReActPrompt creates a prompt that guides the LLM to think explicitly
 func (r *ReActAgent) buildReActPrompt(query string, previousSteps []types.ReActStep) string {
 	var prompt strings.Builder
-	
+
 	prompt.WriteString("You are a helpful AI assistant that thinks step-by-step using the ReAct pattern.\n\n")
 	prompt.WriteString("ReAct means: Reasoning (think) + Acting (do)\n\n")
 	prompt.WriteString("For each step, you must explicitly provide:\n")
@@ -59,13 +59,13 @@ func (r *ReActAgent) buildReActPrompt(query string, previousSteps []types.ReActS
 	prompt.WriteString("2. Action: The tool/function to call (or 'Answer' if you're ready to respond)\n")
 	prompt.WriteString("3. Observation: What you learned from the action\n")
 	prompt.WriteString("4. Reflection: What this means for solving the problem\n\n")
-	
+
 	prompt.WriteString("Example format:\n")
 	prompt.WriteString("Thought: I need to check the weather to answer this question\n")
 	prompt.WriteString("Action: call_tool('get_weather', {location: 'Paris'})\n")
 	prompt.WriteString("Observation: Temperature is 20°C, sunny\n")
 	prompt.WriteString("Reflection: Now I have the information needed to answer\n\n")
-	
+
 	// Show previous steps if any
 	if len(previousSteps) > 0 {
 		prompt.WriteString("Previous reasoning steps:\n")
@@ -78,20 +78,20 @@ func (r *ReActAgent) buildReActPrompt(query string, previousSteps []types.ReActS
 		}
 		prompt.WriteString("\n")
 	}
-	
+
 	prompt.WriteString(fmt.Sprintf("User Query: %s\n\n", query))
 	prompt.WriteString("Now provide your next reasoning step:\n")
-	
+
 	return prompt.String()
 }
 
 // parseReActResponse extracts Thought, Action, Observation, Reflection from LLM response
 func (r *ReActAgent) parseReActResponse(response string) (thought, action, observation, reflection string) {
 	lines := strings.Split(response, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if strings.HasPrefix(strings.ToLower(line), "thought:") {
 			thought = strings.TrimSpace(strings.TrimPrefix(line, "Thought:"))
 			thought = strings.TrimSpace(strings.TrimPrefix(thought, "thought:"))
@@ -106,23 +106,23 @@ func (r *ReActAgent) parseReActResponse(response string) (thought, action, obser
 			reflection = strings.TrimSpace(strings.TrimPrefix(reflection, "reflection:"))
 		}
 	}
-	
+
 	// If no explicit structure, treat entire response as thought
 	if thought == "" && action == "" && observation == "" && reflection == "" {
 		thought = response
 		action = "Answer"
 	}
-	
+
 	return
 }
 
 // Think performs one iteration of ReAct reasoning
 func (r *ReActAgent) Think(ctx context.Context, query string) (*types.ReActStep, error) {
 	iteration := len(r.steps) + 1
-	
+
 	// Build prompt with previous steps
 	prompt := r.buildReActPrompt(query, r.steps)
-	
+
 	// Call LLM
 	messages := []types.Message{
 		{
@@ -130,7 +130,7 @@ func (r *ReActAgent) Think(ctx context.Context, query string) (*types.ReActStep,
 			Content: prompt,
 		},
 	}
-	
+
 	response, err := r.provider.Chat(ctx, messages, &types.ChatOptions{
 		Temperature: 0.7,
 		MaxTokens:   1000,
@@ -138,10 +138,10 @@ func (r *ReActAgent) Think(ctx context.Context, query string) (*types.ReActStep,
 	if err != nil {
 		return nil, fmt.Errorf("LLM call failed: %w", err)
 	}
-	
+
 	// Parse response
 	thought, action, observation, reflection := r.parseReActResponse(response.Content)
-	
+
 	// Create ReAct step
 	step := types.ReActStep{
 		Iteration:   iteration,
@@ -151,15 +151,15 @@ func (r *ReActAgent) Think(ctx context.Context, query string) (*types.ReActStep,
 		Reflection:  reflection,
 		Timestamp:   time.Now(),
 	}
-	
+
 	// Store step
 	r.steps = append(r.steps, step)
-	
+
 	// Print if verbose
 	if r.verbose {
 		r.printStep(step)
 	}
-	
+
 	// Store in memory if available
 	if r.memory != nil {
 		metadata := map[string]interface{}{
@@ -173,7 +173,7 @@ func (r *ReActAgent) Think(ctx context.Context, query string) (*types.ReActStep,
 		}
 		r.memory.Add(msg)
 	}
-	
+
 	return &step, nil
 }
 
@@ -194,46 +194,46 @@ func (r *ReActAgent) printStep(step types.ReActStep) {
 // Solve uses ReAct pattern to solve a problem iteratively
 func (r *ReActAgent) Solve(ctx context.Context, query string) (string, error) {
 	r.ClearSteps() // Start fresh
-	
+
 	for i := 0; i < r.maxSteps; i++ {
 		step, err := r.Think(ctx, query)
 		if err != nil {
 			return "", fmt.Errorf("reasoning failed at step %d: %w", i+1, err)
 		}
-		
+
 		// Check if agent wants to provide final answer
 		if strings.Contains(strings.ToLower(step.Action), "answer") ||
-		   strings.Contains(strings.ToLower(step.Action), "respond") ||
-		   strings.Contains(strings.ToLower(step.Action), "final") {
+			strings.Contains(strings.ToLower(step.Action), "respond") ||
+			strings.Contains(strings.ToLower(step.Action), "final") {
 			// Extract final answer
 			finalAnswer := step.Thought
 			if step.Reflection != "" {
 				finalAnswer = step.Reflection
 			}
-			
+
 			if r.verbose {
 				fmt.Printf("✅ Final Answer: %s\n", finalAnswer)
 			}
-			
+
 			return finalAnswer, nil
 		}
-		
+
 		// In real implementation, this is where tool execution would happen
 		// For now, we simulate observation from the action
 		step.Observation = fmt.Sprintf("Executed: %s", step.Action)
 	}
-	
+
 	return "", fmt.Errorf("max iterations (%d) reached without final answer", r.maxSteps)
 }
 
 // GetReasoningHistory returns a formatted string of all reasoning steps
 func (r *ReActAgent) GetReasoningHistory() string {
 	var history strings.Builder
-	
+
 	history.WriteString("=== ReAct Reasoning History ===\n\n")
-	
+
 	for _, step := range r.steps {
-		history.WriteString(fmt.Sprintf("Iteration %d (%s):\n", 
+		history.WriteString(fmt.Sprintf("Iteration %d (%s):\n",
 			step.Iteration, step.Timestamp.Format("15:04:05")))
 		history.WriteString(fmt.Sprintf("  💭 Thought: %s\n", step.Thought))
 		history.WriteString(fmt.Sprintf("  🎯 Action: %s\n", step.Action))
@@ -245,7 +245,7 @@ func (r *ReActAgent) GetReasoningHistory() string {
 		}
 		history.WriteString("\n")
 	}
-	
+
 	return history.String()
 }
 
@@ -254,11 +254,11 @@ func (r *ReActAgent) SaveToMemory(query string, answer string) error {
 	if r.memory == nil {
 		return nil // No memory configured
 	}
-	
+
 	// Save summary message
 	summary := fmt.Sprintf("Solved: %s\nUsed %d reasoning steps\nAnswer: %s",
 		query, len(r.steps), answer)
-	
+
 	msg := types.Message{
 		Role:    types.RoleAssistant,
 		Content: summary,
@@ -270,6 +270,6 @@ func (r *ReActAgent) SaveToMemory(query string, answer string) error {
 			"final_answer": answer,
 		},
 	}
-	
+
 	return r.memory.Add(msg)
 }

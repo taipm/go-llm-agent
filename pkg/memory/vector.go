@@ -173,16 +173,16 @@ func (v *VectorMemory) GetHistory(limit int) ([]types.Message, error) {
 // Clear implements types.Memory interface
 func (v *VectorMemory) Clear() error {
 	ctx := context.Background()
-	
+
 	// Clear cache
 	v.cache.Clear()
-	
+
 	// Delete and recreate collection
 	err := v.client.DeleteCollection(ctx, v.collectionName)
 	if err != nil {
 		return fmt.Errorf("failed to delete collection: %w", err)
 	}
-	
+
 	return v.ensureCollection(ctx)
 }
 
