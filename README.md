@@ -504,18 +504,15 @@ import (
     "log"
     
     "github.com/taipm/go-llm-agent/agent"
-    "github.com/taipm/go-llm-agent/memory"
     "github.com/taipm/go-llm-agent/provider/ollama"
 )
 
 func main() {
     ctx := context.Background()
     
-    // Tạo agent với memory
+    // Tạo agent (memory tự động khởi tạo với 100 messages)
     provider := ollama.New("http://localhost:11434", "llama3.2")
-    mem := memory.NewBuffer(100) // Lưu 100 messages
-    
-    agent := agent.New(provider, agent.WithMemory(mem))
+    agent := agent.New(provider)
     
     // Conversation
     resp1, _ := agent.Chat(ctx, "My name is John and I love programming")
@@ -529,6 +526,15 @@ func main() {
     fmt.Println(resp3)
     // Output: You love programming.
 }
+```
+
+**Tùy chỉnh kích thước memory:**
+
+```go
+import "github.com/taipm/go-llm-agent/memory"
+
+mem := memory.NewBuffer(200) // Tùy chỉnh 200 messages
+agent := agent.New(provider, agent.WithMemory(mem))
 ```
 
 ## 📖 Documentation
