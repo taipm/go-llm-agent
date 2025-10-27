@@ -34,6 +34,7 @@ type Agent struct {
 	// Learning system (lazy initialized)
 	experienceStore *learning.ExperienceStore
 	toolSelector    *learning.ToolSelector
+	errorAnalyzer   *learning.ErrorAnalyzer
 	conversationID  string // Current session ID
 
 	// Auto-reasoning settings
@@ -282,6 +283,7 @@ type AgentStatus struct {
 		Enabled              bool           `json:"enabled"`
 		ExperienceStoreReady bool           `json:"experience_store_ready"`
 		ToolSelectorReady    bool           `json:"tool_selector_ready"`
+		ErrorAnalyzerReady   bool           `json:"error_analyzer_ready"`
 		ConversationID       string         `json:"conversation_id"`
 		TotalExperiences     int            `json:"total_experiences"`
 		LearningStage        string         `json:"learning_stage"` // "exploring", "learning", "expert"
@@ -346,6 +348,7 @@ func (a *Agent) Status() *AgentStatus {
 	status.Learning.Enabled = a.options.EnableLearning
 	status.Learning.ExperienceStoreReady = (a.experienceStore != nil)
 	status.Learning.ToolSelectorReady = (a.toolSelector != nil)
+	status.Learning.ErrorAnalyzerReady = (a.errorAnalyzer != nil)
 	status.Learning.ConversationID = a.conversationID
 
 	// Get learning analytics if learning is enabled
@@ -478,6 +481,23 @@ func (a *Agent) initToolSelector() {
 
 	a.toolSelector = learning.NewToolSelector(a.experienceStore, a.tools, a.logger)
 	a.logger.Info("✅ Tool selector ready (ε-greedy learning active)")
+	
+	// Also initialize error analyzer
+	a.initErrorAnalyzer()
+}
+
+// initErrorAnalyzer initializes the error pattern analyzer
+func (a *Agent) initErrorAnalyzer() {
+	if a.errorAnalyzer != nil {
+		return // Already initialized
+	}
+
+	if a.experienceStore == nil {
+		return // Need experience store first
+	}
+
+	a.errorAnalyzer = learning.NewErrorAnalyzer(a.experienceStore, a.logger)
+	a.logger.Info("✅ Error analyzer ready (pattern detection active)")
 }
 
 // recordExperience records an experience for learning
@@ -1108,7 +1128,7 @@ func needsCoT(query string) bool {
 	// - Explanations
 	// - Derivations
 	// - Proofs
-	
+
 	// Multi-step reasoning indicators (non-calculation)
 	reasoningIndicators := []string{
 		"step by step", "explain how", "explain why",
