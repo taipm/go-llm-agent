@@ -74,9 +74,9 @@ func New(provider types.LLMProvider, opts ...Option) *Agent {
 		tools:               tools.NewRegistry(),
 		memory:              memory.NewBuffer(100), // Default memory with 100 messages
 		options:             DefaultOptions(),
-		logger:              defaultLogger,         // Default logger with DEBUG level
-		enableAutoReasoning: true,                  // Enable auto reasoning by default
-		conversationID:      uuid.New().String(),   // Generate unique session ID
+		logger:              defaultLogger,       // Default logger with DEBUG level
+		enableAutoReasoning: true,                // Enable auto reasoning by default
+		conversationID:      uuid.New().String(), // Generate unique session ID
 	}
 
 	// Load all builtin tools by default
@@ -802,34 +802,34 @@ func (a *Agent) detectIntent(query string) string {
 	queryLower := strings.ToLower(query)
 
 	// Math/calculation intent
-	if strings.Contains(queryLower, "calculate") || 
-	   strings.Contains(queryLower, "compute") ||
-	   strings.Contains(queryLower, "solve") ||
-	   regexp.MustCompile(`\d+\s*[\+\-\*\/]\s*\d+`).MatchString(query) {
+	if strings.Contains(queryLower, "calculate") ||
+		strings.Contains(queryLower, "compute") ||
+		strings.Contains(queryLower, "solve") ||
+		regexp.MustCompile(`\d+\s*[\+\-\*\/]\s*\d+`).MatchString(query) {
 		return "calculation"
 	}
 
 	// Web search intent
 	if strings.Contains(queryLower, "search") ||
-	   strings.Contains(queryLower, "find") ||
-	   strings.Contains(queryLower, "look up") ||
-	   strings.Contains(queryLower, "what is") {
+		strings.Contains(queryLower, "find") ||
+		strings.Contains(queryLower, "look up") ||
+		strings.Contains(queryLower, "what is") {
 		return "information_retrieval"
 	}
 
 	// File operations
 	if strings.Contains(queryLower, "read file") ||
-	   strings.Contains(queryLower, "write file") ||
-	   strings.Contains(queryLower, "save to") ||
-	   strings.Contains(queryLower, "open file") {
+		strings.Contains(queryLower, "write file") ||
+		strings.Contains(queryLower, "save to") ||
+		strings.Contains(queryLower, "open file") {
 		return "file_operation"
 	}
 
 	// Code/technical
 	if strings.Contains(queryLower, "code") ||
-	   strings.Contains(queryLower, "program") ||
-	   strings.Contains(queryLower, "function") ||
-	   strings.Contains(queryLower, "debug") {
+		strings.Contains(queryLower, "program") ||
+		strings.Contains(queryLower, "function") ||
+		strings.Contains(queryLower, "debug") {
 		return "coding"
 	}
 
