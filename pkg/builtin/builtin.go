@@ -7,6 +7,7 @@ import (
 	"github.com/taipm/go-llm-agent/pkg/tools"
 	"github.com/taipm/go-llm-agent/pkg/tools/datetime"
 	"github.com/taipm/go-llm-agent/pkg/tools/file"
+	"github.com/taipm/go-llm-agent/pkg/tools/system"
 	"github.com/taipm/go-llm-agent/pkg/tools/web"
 )
 
@@ -15,11 +16,12 @@ const defaultUserAgent = "GoLLMAgent/1.0"
 // Config contains configuration for built-in tools.
 // Use DefaultConfig() for sensible defaults or customize as needed.
 type Config struct {
-	File   FileConfig
-	Web    WebConfig
-	NoFile bool // Skip registering file tools
-	NoWeb  bool // Skip registering web tools
-	NoTime bool // Skip registering datetime tools
+	File    FileConfig
+	Web     WebConfig
+	NoFile  bool // Skip registering file tools
+	NoWeb   bool // Skip registering web tools
+	NoTime  bool // Skip registering datetime tools
+	NoSystem bool // Skip registering system tools
 }
 
 // FileConfig contains file tool configurations
@@ -83,9 +85,10 @@ func DefaultConfig() Config {
 				RateLimit:       1 * time.Second,
 			},
 		},
-		NoFile: false,
-		NoWeb:  false,
-		NoTime: false,
+		NoFile:   false,
+		NoWeb:    false,
+		NoTime:   false,
+		NoSystem: false,
 	}
 }
 
@@ -132,6 +135,11 @@ func GetRegistryWithConfig(config Config) *tools.Registry {
 		registry.Register(datetime.NewNowTool())
 		registry.Register(datetime.NewFormatTool())
 		registry.Register(datetime.NewCalcTool())
+	}
+
+	// Register System tools
+	if !config.NoSystem {
+		registry.Register(system.NewInfoTool())
 	}
 
 	return registry
@@ -197,7 +205,14 @@ func GetDateTimeTools() []tools.Tool {
 	}
 }
 
+// GetSystemTools returns all system-related built-in tools.
+func GetSystemTools() []tools.Tool {
+	return []tools.Tool{
+		system.NewInfoTool(),
+	}
+}
+
 // ToolCount returns the total number of built-in tools available.
 func ToolCount() int {
-	return 10 // 4 file + 3 web + 3 datetime
+	return 11 // 4 file + 3 web + 3 datetime + 1 system
 }

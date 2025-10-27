@@ -12,7 +12,7 @@ import (
 func main() {
 	fmt.Println("=== Built-in Tools - Simple Example ===\n")
 
-	// That's it! One line to get all 10 built-in tools with sensible defaults
+	// That's it! One line to get all 11 built-in tools with sensible defaults
 	registry := builtin.GetRegistry()
 
 	fmt.Printf("✅ Registered %d tools automatically:\n\n", registry.Count())
@@ -61,6 +61,15 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 	fmt.Printf("Go files: %v\n", result)
+
+	fmt.Println("\n--- Example 4: Get system information ---")
+	result, err = registry.Execute(ctx, "system_info", map[string]interface{}{
+		"type": "os",
+	})
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	fmt.Printf("OS info: %v\n", result)
 
 	fmt.Println("\n🎉 That's how simple it is to use built-in tools!")
 	fmt.Println("💡 See examples/builtin_tools/main.go for advanced usage with LLM providers")
