@@ -52,7 +52,7 @@ func main() {
 	fmt.Printf("Supports Search:     %v\n", status.Memory.SupportsSearch)
 	fmt.Printf("Supports Vectors:    %v\n", status.Memory.SupportsVectors)
 	fmt.Printf("Message Count:       %d\n", status.Memory.MessageCount)
-	
+
 	if status.Memory.Type == "vector" {
 		fmt.Println("✓ VectorMemory: Semantic search enabled (Qdrant detected)")
 	} else {
@@ -68,13 +68,49 @@ func main() {
 	fmt.Printf("Experience Store:    %v\n", status.Learning.ExperienceStoreReady)
 	fmt.Printf("Tool Selector:       %v\n", status.Learning.ToolSelectorReady)
 	fmt.Printf("Conversation ID:     %s\n", status.Learning.ConversationID)
-	
+
+	if status.Learning.TotalExperiences > 0 {
+		fmt.Printf("\n🧠 Learning Progress:\n")
+		fmt.Printf("Total Experiences:   %d\n", status.Learning.TotalExperiences)
+		fmt.Printf("Learning Stage:      %s\n", status.Learning.LearningStage)
+		fmt.Printf("Success Rate:        %.1f%%\n", status.Learning.OverallSuccessRate)
+		fmt.Printf("Production Ready:    %v\n", status.Learning.ReadyForProduction)
+
+		if len(status.Learning.TopPerformingTools) > 0 {
+			fmt.Printf("\n⭐ Top Performing Tools:\n")
+			for _, tool := range status.Learning.TopPerformingTools {
+				fmt.Printf("  • %s\n", tool)
+			}
+		}
+
+		if len(status.Learning.ProblematicTools) > 0 {
+			fmt.Printf("\n⚠️  Tools Needing Attention:\n")
+			for _, tool := range status.Learning.ProblematicTools {
+				fmt.Printf("  • %s\n", tool)
+			}
+		}
+
+		if len(status.Learning.KnowledgeAreas) > 0 {
+			fmt.Printf("\n📖 Knowledge Areas:\n")
+			for intent, count := range status.Learning.KnowledgeAreas {
+				fmt.Printf("  • %s: %d experiences\n", intent, count)
+			}
+		}
+
+		if len(status.Learning.RecentImprovements) > 0 {
+			fmt.Printf("\n📈 Recent Improvements:\n")
+			for _, improvement := range status.Learning.RecentImprovements {
+				fmt.Printf("  • %s\n", improvement)
+			}
+		}
+	}
+
 	if status.Learning.Enabled && status.Learning.ExperienceStoreReady {
-		fmt.Println("✓ Full learning active: ε-greedy algorithm (90% exploit, 10% explore)")
+		fmt.Println("\n✓ Full learning active: ε-greedy algorithm (90% exploit, 10% explore)")
 	} else if status.Learning.Enabled {
-		fmt.Println("⚡ Learning enabled but waiting for VectorMemory")
+		fmt.Println("\n⚡ Learning enabled but waiting for VectorMemory")
 	} else {
-		fmt.Println("✗ Learning disabled")
+		fmt.Println("\n✗ Learning disabled")
 	}
 	fmt.Println()
 
@@ -83,7 +119,7 @@ func main() {
 	fmt.Println(strings.Repeat("-", 70))
 	fmt.Printf("Total Tools:         %d\n", status.Tools.TotalCount)
 	fmt.Println("\nAvailable Tools:")
-	
+
 	// Group tools by category
 	toolsByCategory := groupTools(status.Tools.ToolNames)
 	for category, tools := range toolsByCategory {
@@ -98,21 +134,21 @@ func main() {
 	if status.Learning.Enabled && status.Learning.ExperienceStoreReady {
 		fmt.Println("🧠 6. AGENT SELF-ASSESSMENT")
 		fmt.Println(strings.Repeat("-", 70))
-		
+
 		ctx := context.Background()
 		report, err := ag.GetLearningReport(ctx)
 		if err == nil && report != nil {
 			fmt.Printf("Total Experiences:   %d\n", report.TotalExperiences)
 			fmt.Printf("Learning Stage:      %s\n", report.LearningStage)
 			fmt.Printf("Production Ready:    %v\n", report.ReadyForProduction)
-			
+
 			if len(report.Insights) > 0 {
 				fmt.Println("\nAgent Insights:")
 				for _, insight := range report.Insights {
 					fmt.Printf("  • %s\n", insight)
 				}
 			}
-			
+
 			if len(report.Warnings) > 0 {
 				fmt.Println("\nWarnings:")
 				for _, warning := range report.Warnings {
@@ -153,16 +189,16 @@ func truncate(s string, maxLen int) string {
 
 func groupTools(toolNames []string) map[string][]string {
 	groups := make(map[string][]string)
-	
+
 	for _, name := range toolNames {
 		category := "Other"
-		
+
 		if strings.HasPrefix(name, "file_") {
 			category = "File Operations"
 		} else if strings.HasPrefix(name, "web_") {
 			category = "Web Tools"
-		} else if strings.HasPrefix(name, "dns_") || strings.HasPrefix(name, "ping") || 
-			strings.HasPrefix(name, "whois_") || strings.HasPrefix(name, "ssl_") || 
+		} else if strings.HasPrefix(name, "dns_") || strings.HasPrefix(name, "ping") ||
+			strings.HasPrefix(name, "whois_") || strings.HasPrefix(name, "ssl_") ||
 			strings.HasPrefix(name, "ip_") {
 			category = "Network Tools"
 		} else if strings.HasPrefix(name, "gmail_") {
@@ -176,9 +212,9 @@ func groupTools(toolNames []string) map[string][]string {
 		} else if strings.HasPrefix(name, "mongodb_") {
 			category = "MongoDB Tools"
 		}
-		
+
 		groups[category] = append(groups[category], name)
 	}
-	
+
 	return groups
 }

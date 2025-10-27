@@ -73,13 +73,13 @@ func main() {
 	if status.Learning.Enabled && status.Learning.ExperienceStoreReady {
 		fmt.Println("🧠 Agent Self-Assessment (Learning Progress):")
 		fmt.Println(strings.Repeat("=", 60))
-		
+
 		report, err := ag.GetLearningReport(ctx)
 		if err == nil && report != nil {
 			fmt.Printf("Total Experiences: %d\n", report.TotalExperiences)
 			fmt.Printf("Learning Stage: %s\n", report.LearningStage)
 			fmt.Printf("Production Ready: %v\n", report.ReadyForProduction)
-			
+
 			if len(report.ToolPerformance) > 0 {
 				fmt.Println("\nTool Performance:")
 				for toolName, stats := range report.ToolPerformance {
@@ -87,14 +87,14 @@ func main() {
 						toolName, stats.SuccessRate*100, stats.Successes, stats.TotalCalls, stats.AvgLatency)
 				}
 			}
-			
+
 			if len(report.Insights) > 0 {
 				fmt.Println("\nAgent Insights:")
 				for _, insight := range report.Insights {
 					fmt.Printf("  ✓ %s\n", insight)
 				}
 			}
-			
+
 			if len(report.Warnings) > 0 {
 				fmt.Println("\nWarnings:")
 				for _, warning := range report.Warnings {

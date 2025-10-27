@@ -279,10 +279,18 @@ type AgentStatus struct {
 
 	// Learning
 	Learning struct {
-		Enabled              bool   `json:"enabled"`
-		ExperienceStoreReady bool   `json:"experience_store_ready"`
-		ToolSelectorReady    bool   `json:"tool_selector_ready"`
-		ConversationID       string `json:"conversation_id"`
+		Enabled              bool           `json:"enabled"`
+		ExperienceStoreReady bool           `json:"experience_store_ready"`
+		ToolSelectorReady    bool           `json:"tool_selector_ready"`
+		ConversationID       string         `json:"conversation_id"`
+		TotalExperiences     int            `json:"total_experiences"`
+		LearningStage        string         `json:"learning_stage"` // "exploring", "learning", "expert"
+		OverallSuccessRate   float64        `json:"overall_success_rate"`
+		ReadyForProduction   bool           `json:"ready_for_production"`
+		TopPerformingTools   []string       `json:"top_performing_tools,omitempty"`
+		ProblematicTools     []string       `json:"problematic_tools,omitempty"`
+		KnowledgeAreas       map[string]int `json:"knowledge_areas,omitempty"` // intent -> experience count
+		RecentImprovements   []string       `json:"recent_improvements,omitempty"`
 	} `json:"learning"`
 
 	// Provider
@@ -339,6 +347,96 @@ func (a *Agent) Status() *AgentStatus {
 	status.Learning.ExperienceStoreReady = (a.experienceStore != nil)
 	status.Learning.ToolSelectorReady = (a.toolSelector != nil)
 	status.Learning.ConversationID = a.conversationID
+
+	// Get learning analytics if learning is enabled
+	if a.options.EnableLearning && a.experienceStore != nil {
+		// Get experiences for analysis (non-blocking, best effort)
+		ctx := context.Background()
+		experiences, err := a.experienceStore.Query(ctx, learning.ExperienceFilters{
+			Query: a.conversationID,
+			Limit: 1000,
+		})
+		if err == nil {
+			status.Learning.TotalExperiences = len(experiences)
+
+			// Analyze tool performance
+			toolCounts := make(map[string]int)
+			successCounts := make(map[string]int)
+			intentCounts := make(map[string]int)
+
+			for _, exp := range experiences {
+				if exp.ToolCalled != "" {
+					toolCounts[exp.ToolCalled]++
+					if exp.Success {
+						successCounts[exp.ToolCalled]++
+					}
+				}
+				if exp.Intent != "" {
+					intentCounts[exp.Intent]++
+				}
+			}
+
+			// Determine learning stage
+			if status.Learning.TotalExperiences < 5 {
+				status.Learning.LearningStage = "exploring"
+			} else if status.Learning.TotalExperiences < 20 {
+				status.Learning.LearningStage = "learning"
+			} else {
+				status.Learning.LearningStage = "expert"
+			}
+
+			// Calculate overall success rate
+			totalCalls := 0
+			totalSuccess := 0
+			for toolName, count := range toolCounts {
+				totalCalls += count
+				totalSuccess += successCounts[toolName]
+			}
+			if totalCalls > 0 {
+				status.Learning.OverallSuccessRate = float64(totalSuccess) / float64(totalCalls) * 100
+				status.Learning.ReadyForProduction = (status.Learning.OverallSuccessRate >= 85 && status.Learning.TotalExperiences >= 10)
+			}
+
+			// Identify top performing tools (success rate >= 90% with at least 3 calls)
+			topTools := make([]string, 0)
+			problematicTools := make([]string, 0)
+			for toolName, count := range toolCounts {
+				if count >= 3 {
+					successRate := float64(successCounts[toolName]) / float64(count) * 100
+					if successRate >= 90 {
+						topTools = append(topTools, fmt.Sprintf("%s (%.0f%%)", toolName, successRate))
+					} else if successRate < 50 {
+						problematicTools = append(problematicTools, fmt.Sprintf("%s (%.0f%%)", toolName, successRate))
+					}
+				}
+			}
+			status.Learning.TopPerformingTools = topTools
+			status.Learning.ProblematicTools = problematicTools
+
+			// Knowledge areas (intents with experience counts)
+			if len(intentCounts) > 0 {
+				status.Learning.KnowledgeAreas = intentCounts
+			}
+
+			// Recent improvements (compare recent vs older experiences)
+			if status.Learning.TotalExperiences >= 10 {
+				recentCount := min(10, len(experiences))
+				recentSuccesses := 0
+				for i := len(experiences) - recentCount; i < len(experiences); i++ {
+					if experiences[i].Success {
+						recentSuccesses++
+					}
+				}
+				recentSuccessRate := float64(recentSuccesses) / float64(recentCount) * 100
+
+				if recentSuccessRate > status.Learning.OverallSuccessRate+5 {
+					status.Learning.RecentImprovements = append(status.Learning.RecentImprovements,
+						fmt.Sprintf("Recent success rate (%.0f%%) is higher than overall (%.0f%%)",
+							recentSuccessRate, status.Learning.OverallSuccessRate))
+				}
+			}
+		}
+	}
 
 	// Provider type (detect based on type assertion)
 	status.Provider.Type = a.getProviderType()
@@ -1045,6 +1143,9 @@ func (a *Agent) chatWithCoT(ctx context.Context, message string) (string, error)
 	if a.cotAgent == nil {
 		a.cotAgent = reasoning.NewCoTAgent(a.provider, a.memory, 10)
 		a.cotAgent.WithLogger(a.logger)
+		// Provide all available tools to CoT
+		allTools := a.tools.All()
+		a.cotAgent.WithTools(allTools...)
 	}
 
 	// Think through the problem

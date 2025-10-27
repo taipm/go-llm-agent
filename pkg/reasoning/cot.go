@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/taipm/go-llm-agent/pkg/logger"
+	"github.com/taipm/go-llm-agent/pkg/tools"
 	"github.com/taipm/go-llm-agent/pkg/types"
 )
 
@@ -16,6 +17,7 @@ import (
 type CoTAgent struct {
 	provider types.LLMProvider
 	memory   types.Memory
+	registry *tools.Registry
 	maxSteps int
 	verbose  bool
 	logger   logger.Logger
@@ -32,10 +34,19 @@ func NewCoTAgent(provider types.LLMProvider, memory types.Memory, maxSteps int) 
 	return &CoTAgent{
 		provider: provider,
 		memory:   memory,
+		registry: tools.NewRegistry(),
 		maxSteps: maxSteps,
 		verbose:  false,
 		logger:   logger.NewConsoleLogger(),
 	}
+}
+
+// WithTools adds tools to the agent
+func (c *CoTAgent) WithTools(toolList ...tools.Tool) *CoTAgent {
+	for _, tool := range toolList {
+		c.registry.Register(tool)
+	}
+	return c
 }
 
 // WithLogger sets the logger
