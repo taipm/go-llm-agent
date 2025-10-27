@@ -16,11 +16,11 @@ const defaultUserAgent = "GoLLMAgent/1.0"
 // Config contains configuration for built-in tools.
 // Use DefaultConfig() for sensible defaults or customize as needed.
 type Config struct {
-	File    FileConfig
-	Web     WebConfig
-	NoFile  bool // Skip registering file tools
-	NoWeb   bool // Skip registering web tools
-	NoTime  bool // Skip registering datetime tools
+	File     FileConfig
+	Web      WebConfig
+	NoFile   bool // Skip registering file tools
+	NoWeb    bool // Skip registering web tools
+	NoTime   bool // Skip registering datetime tools
 	NoSystem bool // Skip registering system tools
 }
 
@@ -140,6 +140,8 @@ func GetRegistryWithConfig(config Config) *tools.Registry {
 	// Register System tools
 	if !config.NoSystem {
 		registry.Register(system.NewInfoTool())
+		registry.Register(system.NewProcessesTool())
+		registry.Register(system.NewAppsTool())
 	}
 
 	return registry
@@ -209,10 +211,12 @@ func GetDateTimeTools() []tools.Tool {
 func GetSystemTools() []tools.Tool {
 	return []tools.Tool{
 		system.NewInfoTool(),
+		system.NewProcessesTool(),
+		system.NewAppsTool(),
 	}
 }
 
 // ToolCount returns the total number of built-in tools available.
 func ToolCount() int {
-	return 11 // 4 file + 3 web + 3 datetime + 1 system
+	return 13 // 4 file + 3 web + 3 datetime + 3 system
 }

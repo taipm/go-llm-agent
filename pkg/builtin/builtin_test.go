@@ -44,9 +44,9 @@ func TestGetRegistry(t *testing.T) {
 		t.Fatal("GetRegistry returned nil")
 	}
 
-	// Should have all 11 tools (was 10, now +1 system)
-	if registry.Count() != 11 {
-		t.Errorf("Expected 11 tools, got %d", registry.Count())
+	// Should have all 13 tools (4 file + 3 web + 3 datetime + 3 system)
+	if registry.Count() != 13 {
+		t.Errorf("Expected 13 tools, got %d", registry.Count())
 	}
 
 	// Check specific tools exist
@@ -62,6 +62,8 @@ func TestGetRegistry(t *testing.T) {
 		"datetime_format",
 		"datetime_calc",
 		"system_info",
+		"system_processes",
+		"system_apps",
 	}
 
 	for _, name := range expectedTools {
@@ -77,9 +79,9 @@ func TestGetRegistryWithConfig_NoFile(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 7 tools (3 web + 3 datetime + 1 system)
-	if registry.Count() != 7 {
-		t.Errorf("Expected 7 tools, got %d", registry.Count())
+	// Should have 9 tools (3 web + 3 datetime + 3 system)
+	if registry.Count() != 9 {
+		t.Errorf("Expected 9 tools, got %d", registry.Count())
 	}
 
 	// File tools should not exist
@@ -102,9 +104,9 @@ func TestGetRegistryWithConfig_NoWeb(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 8 tools (4 file + 3 datetime + 1 system)
-	if registry.Count() != 8 {
-		t.Errorf("Expected 8 tools, got %d", registry.Count())
+	// Should have 10 tools (4 file + 3 datetime + 3 system)
+	if registry.Count() != 10 {
+		t.Errorf("Expected 10 tools, got %d", registry.Count())
 	}
 
 	// Web tools should not exist
@@ -127,9 +129,9 @@ func TestGetRegistryWithConfig_NoTime(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 8 tools (4 file + 3 web + 1 system)
-	if registry.Count() != 8 {
-		t.Errorf("Expected 8 tools, got %d", registry.Count())
+	// Should have 10 tools (4 file + 3 web + 3 system)
+	if registry.Count() != 10 {
+		t.Errorf("Expected 10 tools, got %d", registry.Count())
 	}
 
 	// DateTime tools should not exist
@@ -198,8 +200,8 @@ func TestGetRegistryWithConfig_NoSystem(t *testing.T) {
 func TestGetAllTools(t *testing.T) {
 	tools := GetAllTools()
 
-	if len(tools) != 11 {
-		t.Errorf("Expected 11 tools, got %d", len(tools))
+	if len(tools) != 13 {
+		t.Errorf("Expected 13 tools, got %d", len(tools))
 	}
 
 	// Check each tool has required methods
@@ -231,8 +233,8 @@ func TestGetToolsByCategory(t *testing.T) {
 	if len(datetimeTools) != 3 {
 		t.Errorf("Expected 3 datetime tools, got %d", len(datetimeTools))
 	}
-	if len(systemTools) != 1 {
-		t.Errorf("Expected 1 system tool, got %d", len(systemTools))
+	if len(systemTools) != 3 {
+		t.Errorf("Expected 3 system tools, got %d", len(systemTools))
 	}
 
 	// Verify categories
@@ -338,12 +340,14 @@ func TestGetDateTimeTools(t *testing.T) {
 func TestGetSystemTools(t *testing.T) {
 	systemTools := GetSystemTools()
 
-	if len(systemTools) != 1 {
-		t.Errorf("Expected 1 system tool, got %d", len(systemTools))
+	if len(systemTools) != 3 {
+		t.Errorf("Expected 3 system tools, got %d", len(systemTools))
 	}
 
 	expectedNames := map[string]bool{
-		"system_info": false,
+		"system_info":      false,
+		"system_processes": false,
+		"system_apps":      false,
 	}
 
 	for _, tool := range systemTools {
@@ -362,8 +366,8 @@ func TestGetSystemTools(t *testing.T) {
 
 func TestToolCount(t *testing.T) {
 	count := ToolCount()
-	if count != 11 {
-		t.Errorf("Expected ToolCount to return 11, got %d", count)
+	if count != 13 {
+		t.Errorf("Expected ToolCount to return 13, got %d", count)
 	}
 }
 
@@ -374,9 +378,9 @@ func TestCustomConfig(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Registry should still have all 11 tools
-	if registry.Count() != 11 {
-		t.Errorf("Expected 11 tools, got %d", registry.Count())
+	// Registry should still have all 13 tools
+	if registry.Count() != 13 {
+		t.Errorf("Expected 13 tools, got %d", registry.Count())
 	}
 
 	// Note: We can't directly verify the config was applied since tools don't expose it
@@ -391,7 +395,7 @@ func TestSafeTools(t *testing.T) {
 	safeTools := registry.SafeTools()
 
 	// All tools should be safe except file_write and file_delete
-	expectedSafeCount := 9 // 11 total - 2 unsafe (write, delete)
+	expectedSafeCount := 11 // 13 total - 2 unsafe (write, delete)
 
 	if len(safeTools) != expectedSafeCount {
 		t.Errorf("Expected %d safe tools, got %d", expectedSafeCount, len(safeTools))
@@ -409,8 +413,8 @@ func TestToToolDefinitions(t *testing.T) {
 	registry := GetRegistry()
 	defs := registry.ToToolDefinitions()
 
-	if len(defs) != 11 {
-		t.Errorf("Expected 11 tool definitions, got %d", len(defs))
+	if len(defs) != 13 {
+		t.Errorf("Expected 13 tool definitions, got %d", len(defs))
 	}
 
 	for _, def := range defs {

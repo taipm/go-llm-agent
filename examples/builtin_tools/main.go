@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== go-llm-agent Built-in Tools Demo ===\n")
+	fmt.Println("=== go-llm-agent Built-in Tools Demo ===")
 
 	// Initialize provider
 	llm, err := provider.FromEnv()
@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// Create tool registry with all built-in tools (super simple!)
-	// This automatically registers all 10 built-in tools with sensible defaults
+	// This automatically registers all 13 built-in tools with sensible defaults
 	registry := builtin.GetRegistry()
 
 	// Alternative: Use custom configuration
