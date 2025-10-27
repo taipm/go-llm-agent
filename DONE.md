@@ -288,69 +288,175 @@ This file tracks all completed tasks and milestones for the go-llm-agent project
 
 ## ✅ Built-in Tools Infrastructure (Oct 27, 2025)
 
-### Initial Implementation ✅ COMPLETED
-**Duration**: 4 hours | **Lines**: 1,895 lines | **Status**: COMPLETED (Oct 27, 2025)
+### Phase 1: Core Tools (Days 1-3) ✅ COMPLETED
+**Duration**: 3 days | **Lines**: ~2,400 lines | **Status**: 100% COMPLETED (Oct 27, 2025)
 
-#### Design Document
-- [x] Created `BUILTIN_TOOLS_DESIGN.md` (547 lines)
-  - ✅ Complete architecture and design principles
-  - ✅ Directory structure specification (6 categories)
-  - ✅ Tool interface and registry design
-  - ✅ 20+ planned tools across all categories
-  - ✅ Security considerations and best practices
-  - ✅ Implementation priority (3 phases)
-  - ✅ Configuration and usage examples
+#### Day 1: File Tools ✅ COMPLETED
+- [x] `file_read` (178 lines) - Read file content with security
+  - ✅ 6 test cases, all passing
+- [x] `file_list` (134 lines) - List directory, recursive, pattern filter  
+  - ✅ 6 test cases, all passing
+- [x] `file_write` (224 lines) - Write/append content with backup
+  - ✅ 7 test cases, all passing
+- [x] `file_delete` (185 lines) - Delete files/dirs with protection
+  - ✅ 5 test cases, all passing
+- **Commits**: e50e6b3 (Day 1 complete)
+- **Status**: 4/4 tools, 24 tests passing
 
-#### Core Infrastructure
-- [x] `pkg/tools/tools.go` (123 lines)
-  - ✅ Tool interface (Name, Description, Parameters, Execute)
-  - ✅ ToolCategory enum (6 categories)
-  - ✅ BaseTool struct with common functionality
-  - ✅ ToToolDefinition() converter for LLM integration
+#### Day 2: Web Tools ✅ COMPLETED  
+- [x] `web_fetch` (236 lines) - HTTP GET with SSRF prevention
+  - ✅ 26 test cases, all passing
+- [x] `web_post` (217 lines) - HTTP POST (JSON/form data)
+  - ✅ 26 test cases, all passing
+- [x] `web_scrape` (252 lines) - Web scraping with CSS selectors
+  - ✅ 27 test cases, all passing
+- **Dependency**: github.com/PuerkitoBio/goquery v1.10.3
+- **Real-world validation**: Scraped vnexpress.net successfully
+- **Commits**: f1bedc8 (Day 2 complete)
+- **Status**: 3/3 tools, 79 tests passing
 
-- [x] `pkg/tools/registry.go` (147 lines)
-  - ✅ Registry for managing multiple tools
-  - ✅ Thread-safe operations (sync.RWMutex)
-  - ✅ Register/Unregister/Get/Has/All methods
-  - ✅ ByCategory/SafeTools filtering
-  - ✅ ToToolDefinitions() for LLM usage
-  - ✅ Execute by name
+#### Day 3: DateTime Tools ✅ COMPLETED
+- [x] `datetime_now` (126 lines) - Current time with formats & timezones
+  - ✅ 9 test cases, all passing
+- [x] `datetime_format` (193 lines) - Format/timezone conversion
+  - ✅ 11 test cases, all passing
+- [x] `datetime_calc` (181 lines) - Date calculations (add/subtract/diff)
+  - ✅ 10 test cases, all passing
+- **Commits**: db8d2ad (Day 3 complete)
+- **Status**: 3/3 tools, 30 tests passing
 
-#### Implemented Tools (3/20+, 15%)
-1. **File Tools** (2/4, 50%)
-   - [x] `file_read` (178 lines) - Read file content with security
-   - [x] `file_list` (134 lines) - List directory, recursive, pattern filter
+### Phase 2: Integration & Polish ✅ COMPLETED
+**Duration**: 1 day | **Lines**: 819 lines | **Status**: COMPLETED (Oct 27, 2025)
 
-2. **DateTime Tools** (1/3, 33%)
-   - [x] `datetime_now` (126 lines) - Current time with formats & timezones
+#### Builtin Package
+- [x] `pkg/builtin/builtin.go` (207 lines)
+  - ✅ GetRegistry() - one-line setup for all tools
+  - ✅ GetRegistryWithConfig() - custom configurations
+  - ✅ DefaultConfig() - sensible security defaults
+  - ✅ Category helpers (GetFileTools, GetWebTools, etc.)
+  - ✅ Tool count: 11 tools registered
 
-#### Example Application
-- [x] `examples/builtin_tools/main.go` (175 lines)
-  - ✅ Demo 3 use cases: list files, get time, LLM integration
-  - ✅ Registry usage examples
-  - ✅ Direct tool execution
-  - ✅ LLM tool calling integration
+- [x] `pkg/builtin/builtin_test.go` (400 lines)
+  - ✅ 17 comprehensive test cases
+  - ✅ Tests for all configuration options
+  - ✅ Category filtering tests
+  - ✅ Safe/unsafe tool filtering
+  - ✅ All 17 tests passing
 
-- [x] `examples/builtin_tools/README.md` (106 lines)
-  - ✅ Quick start guide
-  - ✅ Example output
-  - ✅ Security notes
+#### Examples Update
+- [x] `examples/simple/main.go` (75 lines)
+  - ✅ Simplified from 200+ lines to 70 lines
+  - ✅ Demonstrates 4 tools (file, datetime, system)
+  - ✅ One-line registry setup
 
-#### Security Features
-- ✅ Path validation (prevent directory traversal)
+- [x] `examples/builtin_tools/README.md` (137 lines)
+  - ✅ Updated for builtin package
+  - ✅ Usage examples and security notes
+
+**Commits**: ac8e433, e1cffcc (Integration complete)
+
+### Phase 3: System Operations ✅ COMPLETED
+**Duration**: 2 days | **Lines**: ~1,800 lines | **Status**: COMPLETED (Oct 27, 2025)
+
+#### Day 1: System Info Tool ✅ COMPLETED
+- [x] `system_info` (280 lines) - System information tool
+  - ✅ CPU info (cores, model, usage)
+  - ✅ Memory info (total, used, free, swap)
+  - ✅ Disk info (total, used, free, mount points)
+  - ✅ OS info (platform, version, hostname, uptime)
+  - ✅ Network info (interfaces, IPs, MAC addresses)
+  - ✅ 12 comprehensive test cases, all passing
+
+- [x] `pkg/builtin/builtin.go` - Updated for system tools
+  - ✅ NoSystem config flag
+  - ✅ GetSystemTools() helper
+  - ✅ Tool count: 11 (was 10)
+
+- [x] Updated all tests and examples
+  - ✅ 17 builtin tests updated and passing
+  - ✅ Examples demonstrate system_info
+
+**Dependency**: github.com/shirou/gopsutil/v3 v3.24.5
+**Commit**: a46043e (System info complete)
+
+#### Day 2: Processes & Apps Tools ✅ COMPLETED
+- [x] `system_processes` (295 lines) - List running processes
+  - ✅ Filter by name, min CPU%, min memory
+  - ✅ Sort by pid, name, cpu (desc), memory (desc)
+  - ✅ Default: top 50 processes by memory
+  - ✅ Returns: pid, name, cpu%, memory, status, username, cmdline
+  - ✅ Cross-platform via gopsutil
+  - ✅ 7 comprehensive test cases
+
+- [x] `system_apps` (294 lines) - List installed applications
+  - ✅ macOS: .app bundles + Homebrew casks
+  - ✅ Linux: APT packages + .desktop files
+  - ✅ Windows: .exe in Program Files
+  - ✅ Auto-detection of best source per platform
+  - ✅ Multi-source queries with deduplication
+  - ✅ 5 comprehensive test cases
+
+- [x] Test suite: `apps_processes_test.go` (380 lines)
+  - ✅ 14 test cases (7 processes + 5 apps + 2 helpers)
+  - ✅ All 26 system package tests passing
+
+- [x] Builtin package integration
+  - ✅ Registered both tools in GetRegistryWithConfig()
+  - ✅ Updated GetSystemTools() to return 3 tools
+  - ✅ Updated ToolCount() from 11 to 13
+  - ✅ All 17 builtin tests updated and passing
+
+- [x] Examples updated
+  - ✅ simple/main.go: Added Examples 5 & 6
+  - ✅ builtin_tools/main.go: Updated comments
+  - ✅ Both examples tested successfully
+
+**Commit**: 6c26f44 (Processes & apps complete)
+**Status**: 3/3 system tools, 26 tests passing
+
+### Complete Built-in Tools Summary
+
+**Total Tools**: 13 (100% Phase 1 complete)
+- File tools: 4 (read, list, write, delete)
+- Web tools: 3 (fetch, post, scrape)
+- DateTime tools: 3 (now, format, calc)
+- System tools: 3 (info, processes, apps)
+
+**Test Coverage**: 189 total tests passing
+- File: 24 tests
+- Web: 79 tests
+- DateTime: 30 tests
+- System: 26 tests (12 info + 14 processes/apps)
+- Builtin: 17 tests
+- Other packages: 13 tests
+
+**Code Statistics**:
+- Production code: ~2,400 lines
+- Test code: ~1,500 lines
+- Examples: ~400 lines
+- Documentation: ~800 lines
+- **Total**: ~5,100 lines
+
+**Dependencies Added**:
+- github.com/PuerkitoBio/goquery v1.10.3 (web scraping)
+- github.com/shirou/gopsutil/v3 v3.24.5 (system info)
+
+**Security Features**:
+- ✅ Path validation (directory traversal prevention)
 - ✅ AllowedPaths whitelist
-- ✅ Size limits (max 10MB default)
-- ✅ No symlinks option (default: disabled)
-- ✅ Input validation for all parameters
-- ✅ Safe/unsafe tool flagging
+- ✅ Size limits (10MB default)
+- ✅ SSRF prevention (private IP blocking)
+- ✅ Domain whitelisting for web requests
+- ✅ Protected paths for file operations
+- ✅ Read-only by default (11/13 safe tools)
 
-**Statistics**:
-- Design doc: 547 lines
-- Production code: 708 lines (5 files)
-- Example code: 281 lines (2 files)
-- Summary doc: 359 lines
-- **Total**: 1,895 lines
-- **Commits**: ea94e44, 275f6cb
+**Commits Timeline**:
+- e50e6b3: File tools (Day 1)
+- f1bedc8: Web tools (Day 2)
+- db8d2ad: DateTime tools (Day 3)
+- ac8e433, e1cffcc: Builtin package integration
+- a46043e: System info tool
+- 6c26f44: System processes & apps tools
 
 ---
 
