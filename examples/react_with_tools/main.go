@@ -105,9 +105,6 @@ func main() {
 	}
 	fmt.Println("✅ LLM Provider ready\n")
 
-	}
-	fmt.Println("✅ LLM Provider ready\n")
-
 	// Create logger
 	log := logger.NewConsoleLogger()
 	log.SetLevel(logger.LogLevelInfo)
@@ -118,7 +115,9 @@ func main() {
 	reactAgent.WithLogger(log)
 	reactAgent.WithTools(NewCalculatorTool())
 	reactAgent.SetVerbose(true)
-	fmt.Println("✅ ReAct Agent ready with calculator tool\n")	// Test questions that require tool usage
+	fmt.Println("✅ ReAct Agent ready with calculator tool\n")
+
+	// Test questions that require tool usage
 	questions := []string{
 		"Calculate 15 * 23 + 47 using the calculator tool",
 		"What is the result of 100 - 35 (25% of 100 is 25)?",
@@ -134,7 +133,7 @@ func main() {
 
 		answer, err := reactAgent.Solve(ctx, q)
 		if err != nil {
-			log.Printf("❌ Error: %v\n\n", err)
+			fmt.Printf("❌ Error: %v\n\n", err)
 			continue
 		}
 
