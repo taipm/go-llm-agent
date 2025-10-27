@@ -44,9 +44,9 @@ func TestGetRegistry(t *testing.T) {
 		t.Fatal("GetRegistry returned nil")
 	}
 
-	// Should have all 13 tools (4 file + 3 web + 3 datetime + 3 system)
-	if registry.Count() != 13 {
-		t.Errorf("Expected 13 tools, got %d", registry.Count())
+	// Should have all 15 tools (4 file + 3 web + 3 datetime + 3 system + 2 math)
+	if registry.Count() != 15 {
+		t.Errorf("Expected 15 tools, got %d", registry.Count())
 	}
 
 	// Check specific tools exist
@@ -79,9 +79,9 @@ func TestGetRegistryWithConfig_NoFile(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 9 tools (3 web + 3 datetime + 3 system)
-	if registry.Count() != 9 {
-		t.Errorf("Expected 9 tools, got %d", registry.Count())
+	// Should have 11 tools (3 web + 3 datetime + 3 system + 2 math)
+	if registry.Count() != 11 {
+		t.Errorf("Expected 11 tools, got %d", registry.Count())
 	}
 
 	// File tools should not exist
@@ -104,9 +104,9 @@ func TestGetRegistryWithConfig_NoWeb(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 10 tools (4 file + 3 datetime + 3 system)
-	if registry.Count() != 10 {
-		t.Errorf("Expected 10 tools, got %d", registry.Count())
+	// Should have 12 tools (4 file + 3 datetime + 3 system + 2 math)
+	if registry.Count() != 12 {
+		t.Errorf("Expected 12 tools, got %d", registry.Count())
 	}
 
 	// Web tools should not exist
@@ -129,9 +129,9 @@ func TestGetRegistryWithConfig_NoTime(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 10 tools (4 file + 3 web + 3 system)
-	if registry.Count() != 10 {
-		t.Errorf("Expected 10 tools, got %d", registry.Count())
+	// Should have 12 tools (4 file + 3 web + 3 system + 2 math)
+	if registry.Count() != 12 {
+		t.Errorf("Expected 12 tools, got %d", registry.Count())
 	}
 
 	// DateTime tools should not exist
@@ -156,9 +156,9 @@ func TestGetRegistryWithConfig_OnlyFile(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have only 4 file tools
-	if registry.Count() != 4 {
-		t.Errorf("Expected 4 tools, got %d", registry.Count())
+	// Should have 6 tools (4 file + 2 math, since we don't disable math)
+	if registry.Count() != 6 {
+		t.Errorf("Expected 6 tools, got %d", registry.Count())
 	}
 
 	fileTools := []string{"file_read", "file_list", "file_write", "file_delete"}
@@ -175,9 +175,9 @@ func TestGetRegistryWithConfig_NoSystem(t *testing.T) {
 
 	registry := GetRegistryWithConfig(config)
 
-	// Should have 10 tools (4 file + 3 web + 3 datetime)
-	if registry.Count() != 10 {
-		t.Errorf("Expected 10 tools, got %d", registry.Count())
+	// Should have 12 tools (4 file + 3 web + 3 datetime + 2 math)
+	if registry.Count() != 12 {
+		t.Errorf("Expected 12 tools, got %d", registry.Count())
 	}
 
 	// System tools should not exist
@@ -200,8 +200,8 @@ func TestGetRegistryWithConfig_NoSystem(t *testing.T) {
 func TestGetAllTools(t *testing.T) {
 	tools := GetAllTools()
 
-	if len(tools) != 13 {
-		t.Errorf("Expected 13 tools, got %d", len(tools))
+	if len(tools) != 15 {
+		t.Errorf("Expected 15 tools, got %d", len(tools))
 	}
 
 	// Check each tool has required methods
@@ -366,8 +366,8 @@ func TestGetSystemTools(t *testing.T) {
 
 func TestToolCount(t *testing.T) {
 	count := ToolCount()
-	if count != 13 {
-		t.Errorf("Expected ToolCount to return 13, got %d", count)
+	if count != 15 {
+		t.Errorf("Expected ToolCount to return 15, got %d", count)
 	}
 }
 
@@ -379,8 +379,8 @@ func TestCustomConfig(t *testing.T) {
 	registry := GetRegistryWithConfig(config)
 
 	// Registry should still have all 13 tools
-	if registry.Count() != 13 {
-		t.Errorf("Expected 13 tools, got %d", registry.Count())
+	if registry.Count() != 15 {
+		t.Errorf("Expected 15 tools, got %d", registry.Count())
 	}
 
 	// Note: We can't directly verify the config was applied since tools don't expose it
@@ -395,7 +395,7 @@ func TestSafeTools(t *testing.T) {
 	safeTools := registry.SafeTools()
 
 	// All tools should be safe except file_write and file_delete
-	expectedSafeCount := 11 // 13 total - 2 unsafe (write, delete)
+	expectedSafeCount := 13 // 15 total - 2 unsafe (write, delete)
 
 	if len(safeTools) != expectedSafeCount {
 		t.Errorf("Expected %d safe tools, got %d", expectedSafeCount, len(safeTools))
@@ -413,8 +413,8 @@ func TestToToolDefinitions(t *testing.T) {
 	registry := GetRegistry()
 	defs := registry.ToToolDefinitions()
 
-	if len(defs) != 13 {
-		t.Errorf("Expected 13 tool definitions, got %d", len(defs))
+	if len(defs) != 15 {
+		t.Errorf("Expected 15 tool definitions, got %d", len(defs))
 	}
 
 	for _, def := range defs {

@@ -7,6 +7,7 @@ import (
 	"github.com/taipm/go-llm-agent/pkg/tools"
 	"github.com/taipm/go-llm-agent/pkg/tools/datetime"
 	"github.com/taipm/go-llm-agent/pkg/tools/file"
+	mathtools "github.com/taipm/go-llm-agent/pkg/tools/math"
 	"github.com/taipm/go-llm-agent/pkg/tools/system"
 	"github.com/taipm/go-llm-agent/pkg/tools/web"
 )
@@ -22,6 +23,7 @@ type Config struct {
 	NoWeb    bool // Skip registering web tools
 	NoTime   bool // Skip registering datetime tools
 	NoSystem bool // Skip registering system tools
+	NoMath   bool // Skip registering math tools
 }
 
 // FileConfig contains file tool configurations
@@ -89,6 +91,7 @@ func DefaultConfig() Config {
 		NoWeb:    false,
 		NoTime:   false,
 		NoSystem: false,
+		NoMath:   false,
 	}
 }
 
@@ -142,6 +145,12 @@ func GetRegistryWithConfig(config Config) *tools.Registry {
 		registry.Register(system.NewInfoTool())
 		registry.Register(system.NewProcessesTool())
 		registry.Register(system.NewAppsTool())
+	}
+
+	// Register Math tools
+	if !config.NoMath {
+		registry.Register(mathtools.NewCalculateTool())
+		registry.Register(mathtools.NewStatsTool())
 	}
 
 	return registry
@@ -216,7 +225,15 @@ func GetSystemTools() []tools.Tool {
 	}
 }
 
+// GetMathTools returns all math-related built-in tools.
+func GetMathTools() []tools.Tool {
+	return []tools.Tool{
+		mathtools.NewCalculateTool(),
+		mathtools.NewStatsTool(),
+	}
+}
+
 // ToolCount returns the total number of built-in tools available.
 func ToolCount() int {
-	return 13 // 4 file + 3 web + 3 datetime + 3 system
+	return 15 // 4 file + 3 web + 3 datetime + 3 system + 2 math
 }
