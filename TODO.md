@@ -5,16 +5,322 @@
 ## Current Status
 
 **Project**: go-llm-agent  
-**Version**: v0.2.0 (80% complete)  
+**Version**: v0.2.0 (80% complete) → v0.3.0 (Built-in Tools)  
 **Last Updated**: October 27, 2025
 
 ---
 
-## 🚀 Immediate Priority: Sprint 3 Day 5 - v0.2.0 Release
+## 🎯 NEW PRIORITY: Complete Built-in Tools Phase 1 (10/10 tools)
 
-**Target Date**: October 28, 2025  
+**Current Status**: 3/10 tools complete (30%)  
+**Target**: Complete remaining 7 tools before v0.2.0 release  
+**Estimated Time**: 2-3 days  
+**Status**: � IN PROGRESS
+
+### Rationale
+- Built-in tools are essential infrastructure for v0.3.0
+- Better to release v0.2.0 with complete built-in tools system
+- Testing v0.2.0 will benefit from having all tools available
+- More impressive release with 10 built-in tools included
+
+---
+
+## 🔧 Phase 1: Complete Remaining Built-in Tools (7 tools)
+
+### Day 1: File Tools Completion (2 tools) - 4-5 hours
+
+#### Tool 1: file_write - Write content to files
+**Priority**: HIGH  
+**Estimated Time**: 2-2.5 hours  
+**File**: `pkg/tools/file/write.go` (~180 lines)
+
+**Tasks**:
+- [ ] Design WriteToolConfig struct
+  - [ ] AllowedPaths []string (security whitelist)
+  - [ ] MaxFileSize int64 (default 10MB)
+  - [ ] CreateDirs bool (create parent directories)
+  - [ ] Backup bool (backup existing files)
+  - [ ] AppendMode bool (append vs overwrite)
+- [ ] Implement WriteTool struct
+  - [ ] Name() returns "file_write"
+  - [ ] Description() clear explanation
+  - [ ] Parameters() JSON schema (path, content, append)
+  - [ ] Category() returns ToolCategoryFile
+  - [ ] IsSafe() returns false (can modify filesystem)
+- [ ] Implement Execute() method
+  - [ ] Validate path (prevent traversal)
+  - [ ] Check path in AllowedPaths
+  - [ ] Check content size <= MaxFileSize
+  - [ ] Backup existing file if enabled
+  - [ ] Create parent directories if needed
+  - [ ] Write or append content
+  - [ ] Return success with file info
+- [ ] Add comprehensive error handling
+  - [ ] Path validation errors
+  - [ ] Permission denied errors
+  - [ ] Disk space errors
+  - [ ] Size limit errors
+- [ ] Unit tests (~120 lines)
+  - [ ] Test normal write
+  - [ ] Test append mode
+  - [ ] Test backup creation
+  - [ ] Test directory creation
+  - [ ] Test path validation
+  - [ ] Test size limits
+  - [ ] Test security restrictions
+- [ ] Integration test with LLM
+  - [ ] LLM can write files via tool calling
+  - [ ] Proper error messages returned
+
+#### Tool 2: file_delete - Delete files/directories
+**Priority**: MEDIUM  
+**Estimated Time**: 2-2.5 hours  
+**File**: `pkg/tools/file/delete.go` (~150 lines)
+
+**Tasks**:
+- [ ] Design DeleteToolConfig struct
+  - [ ] AllowedPaths []string
+  - [ ] RecursiveDelete bool
+  - [ ] RequireConfirmation bool
+  - [ ] ProtectedPaths []string (cannot delete)
+- [ ] Implement DeleteTool struct
+  - [ ] Name() returns "file_delete"
+  - [ ] Description() with safety warnings
+  - [ ] Parameters() JSON schema (path, recursive)
+  - [ ] Category() returns ToolCategoryFile
+  - [ ] IsSafe() returns false (dangerous operation)
+- [ ] Implement Execute() method
+  - [ ] Validate path
+  - [ ] Check not in ProtectedPaths (/, /etc, /usr, etc.)
+  - [ ] Check path in AllowedPaths
+  - [ ] Handle file vs directory
+  - [ ] Recursive delete if directory and enabled
+  - [ ] Return deletion summary
+- [ ] Safety features
+  - [ ] Block system directories
+  - [ ] Block hidden files by default
+  - [ ] Confirmation mechanism
+- [ ] Unit tests (~100 lines)
+  - [ ] Test file deletion
+  - [ ] Test directory deletion
+  - [ ] Test recursive deletion
+  - [ ] Test protected paths
+  - [ ] Test security restrictions
+- [ ] Integration test with LLM
+
+**Day 1 Deliverables**:
+- ✅ 2 file tools implemented
+- ✅ ~330 lines production code
+- ✅ ~220 lines test code
+- ✅ File tools: 4/4 complete (100%)
+
+---
+
+### Day 2: Web Tools Implementation (3 tools) - 6-7 hours
+
+#### Tool 3: web_fetch - HTTP GET requests
+**Priority**: HIGH  
+**Estimated Time**: 2.5-3 hours  
+**File**: `pkg/tools/web/fetch.go` (~200 lines)
+
+**Tasks**:
+- [ ] Design FetchToolConfig struct
+  - [ ] Timeout time.Duration (default 30s)
+  - [ ] MaxResponseSize int64 (default 1MB)
+  - [ ] AllowedDomains []string (whitelist)
+  - [ ] FollowRedirects bool
+  - [ ] MaxRedirects int
+- [ ] Implement FetchTool struct
+  - [ ] Name() returns "web_fetch"
+  - [ ] Description() explains HTTP GET
+  - [ ] Parameters() JSON schema (url, headers)
+  - [ ] Category() returns ToolCategoryWeb
+  - [ ] IsSafe() returns true (read-only)
+- [ ] Implement Execute() method
+  - [ ] Validate URL (prevent SSRF)
+  - [ ] Check domain whitelist
+  - [ ] Create HTTP client with timeout
+  - [ ] Set custom headers if provided
+  - [ ] Execute GET request
+  - [ ] Check response size
+  - [ ] Read response body
+  - [ ] Return status, headers, body
+- [ ] Security features
+  - [ ] Block private IP ranges (SSRF prevention)
+  - [ ] Block localhost/127.0.0.1
+  - [ ] URL validation
+  - [ ] Response size limits
+- [ ] Unit tests (~150 lines)
+  - [ ] Test successful fetch
+  - [ ] Test custom headers
+  - [ ] Test timeout
+  - [ ] Test size limits
+  - [ ] Test SSRF prevention
+  - [ ] Test domain whitelist
+  - [ ] Mock HTTP server for tests
+- [ ] Integration test with LLM
+
+#### Tool 4: web_post - HTTP POST requests
+**Priority**: MEDIUM  
+**Estimated Time**: 2-2.5 hours  
+**File**: `pkg/tools/web/post.go` (~170 lines)
+
+**Tasks**:
+- [ ] Reuse FetchToolConfig (similar config)
+- [ ] Implement PostTool struct
+  - [ ] Name() returns "web_post"
+  - [ ] Description() explains HTTP POST
+  - [ ] Parameters() JSON schema (url, headers, body, content_type)
+  - [ ] Category() returns ToolCategoryWeb
+  - [ ] IsSafe() returns false (can modify data)
+- [ ] Implement Execute() method
+  - [ ] Same security checks as fetch
+  - [ ] Support JSON and form data
+  - [ ] Set Content-Type header
+  - [ ] Execute POST request
+  - [ ] Return response
+- [ ] Unit tests (~120 lines)
+  - [ ] Test JSON POST
+  - [ ] Test form data POST
+  - [ ] Test custom headers
+  - [ ] Security tests
+- [ ] Integration test with LLM
+
+#### Tool 5: web_scrape - Web scraping with CSS selectors
+**Priority**: LOW  
+**Estimated Time**: 2-2.5 hours  
+**File**: `pkg/tools/web/scrape.go` (~220 lines)
+
+**Tasks**:
+- [ ] Add dependency: `github.com/PuerkitoBio/goquery`
+- [ ] Design ScrapeToolConfig struct
+  - [ ] Extends FetchToolConfig
+  - [ ] RateLimitDelay time.Duration
+  - [ ] RespectRobotsTxt bool
+- [ ] Implement ScrapeTool struct
+  - [ ] Name() returns "web_scrape"
+  - [ ] Description() explains CSS selector extraction
+  - [ ] Parameters() JSON schema (url, selectors)
+  - [ ] Category() returns ToolCategoryWeb
+  - [ ] IsSafe() returns true
+- [ ] Implement Execute() method
+  - [ ] Fetch HTML (reuse fetch logic)
+  - [ ] Parse with goquery
+  - [ ] Apply CSS selectors
+  - [ ] Extract text/attributes
+  - [ ] Return structured data
+- [ ] Rate limiting
+  - [ ] Delay between requests
+  - [ ] Respect robots.txt (basic check)
+- [ ] Unit tests (~130 lines)
+  - [ ] Test CSS selectors
+  - [ ] Test multiple selectors
+  - [ ] Test attribute extraction
+  - [ ] Mock HTML pages
+- [ ] Integration test with LLM
+
+**Day 2 Deliverables**:
+- ✅ 3 web tools implemented
+- ✅ ~590 lines production code
+- ✅ ~400 lines test code
+- ✅ Web tools: 3/3 complete (100%)
+
+---
+
+### Day 3: DateTime & Math Tools (2 tools) - 3-4 hours
+
+#### Tool 6: datetime_format - Format conversion
+**Priority**: MEDIUM  
+**Estimated Time**: 1.5-2 hours  
+**File**: `pkg/tools/datetime/format.go` (~120 lines)
+
+**Tasks**:
+- [ ] Design FormatToolConfig struct
+  - [ ] DefaultTimezone string (default "UTC")
+  - [ ] SupportedFormats []string
+- [ ] Implement FormatTool struct
+  - [ ] Name() returns "datetime_format"
+  - [ ] Description() explains format conversion
+  - [ ] Parameters() JSON schema (input, from_format, to_format, timezone)
+  - [ ] Category() returns ToolCategoryDateTime
+  - [ ] IsSafe() returns true
+- [ ] Implement Execute() method
+  - [ ] Parse input with from_format
+  - [ ] Convert timezone if specified
+  - [ ] Format with to_format
+  - [ ] Support common formats (RFC3339, RFC822, etc.)
+  - [ ] Return formatted string
+- [ ] Unit tests (~80 lines)
+  - [ ] Test format conversions
+  - [ ] Test timezone conversions
+  - [ ] Test error cases
+- [ ] Integration test with LLM
+
+#### Tool 7: datetime_calc - Date calculations
+**Priority**: MEDIUM  
+**Estimated Time**: 1.5-2 hours  
+**File**: `pkg/tools/datetime/calc.go` (~140 lines)
+
+**Tasks**:
+- [ ] Design CalcToolConfig struct
+  - [ ] DefaultTimezone string
+- [ ] Implement CalcTool struct
+  - [ ] Name() returns "datetime_calc"
+  - [ ] Description() explains date math
+  - [ ] Parameters() JSON schema (operation, date, amount, unit)
+  - [ ] Category() returns ToolCategoryDateTime
+  - [ ] IsSafe() returns true
+- [ ] Implement Execute() method
+  - [ ] Support operations: add, subtract, diff
+  - [ ] Support units: years, months, days, hours, minutes, seconds
+  - [ ] Parse dates
+  - [ ] Perform calculations
+  - [ ] Return result with explanation
+- [ ] Unit tests (~90 lines)
+  - [ ] Test add operations
+  - [ ] Test subtract operations
+  - [ ] Test diff calculations
+  - [ ] Test edge cases
+- [ ] Integration test with LLM
+
+**Day 3 Deliverables**:
+- ✅ 2 datetime tools implemented
+- ✅ ~260 lines production code
+- ✅ ~170 lines test code
+- ✅ DateTime tools: 3/3 complete (100%)
+
+---
+
+### Summary: Phase 1 Completion
+
+**Total Effort**: 2-3 days (~13-16 hours)
+
+**Deliverables**:
+- ✅ 7 new tools implemented
+- ✅ ~1,180 lines production code
+- ✅ ~790 lines test code
+- ✅ All tools tested with LLM integration
+- ✅ Phase 1: 10/10 tools complete (100%)
+
+**Tools Completed**:
+1. ✅ file_read (Day 4 - Oct 27)
+2. ✅ file_list (Day 4 - Oct 27)
+3. ✅ datetime_now (Day 4 - Oct 27)
+4. 🔄 file_write (Day 1)
+5. 🔄 file_delete (Day 1)
+6. 🔄 web_fetch (Day 2)
+7. 🔄 web_post (Day 2)
+8. 🔄 web_scrape (Day 2)
+9. 🔄 datetime_format (Day 3)
+10. 🔄 datetime_calc (Day 3)
+
+---
+
+## 🚀 THEN: Sprint 3 Day 5 - v0.2.0 Release
+
+**Target Date**: October 30-31, 2025  
 **Estimated Time**: 4-5 hours  
-**Status**: ⏸️ PENDING
+**Status**: ⏸️ PENDING (after built-in tools)
 
 ### Tasks
 
@@ -59,7 +365,7 @@
 - [ ] Create comprehensive CHANGELOG.md
   - [ ] Document all changes since v0.1.0
   - [ ] Breaking changes (none expected)
-  - [ ] New features (multi-provider, factory pattern)
+  - [ ] New features (multi-provider, factory pattern, 10 built-in tools)
   - [ ] Bug fixes
   - [ ] Documentation updates
 - [ ] Write v0.2.0 release notes
@@ -72,7 +378,7 @@
   - [ ] Update README badges if needed
 - [ ] Create git tag v0.2.0
   ```bash
-  git tag -a v0.2.0 -m "Release v0.2.0: Multi-Provider Support"
+  git tag -a v0.2.0 -m "Release v0.2.0: Multi-Provider Support + Built-in Tools"
   ```
 
 #### 4. Release & Publish (30 min)
@@ -82,7 +388,7 @@
   ```
 - [ ] Create GitHub Release
   - [ ] Attach CHANGELOG
-  - [ ] Add release notes
+  - [ ] Add release notes highlighting 10 built-in tools
   - [ ] Link to documentation
   - [ ] Include upgrade instructions
 - [ ] Verify pkg.go.dev updates automatically
@@ -92,8 +398,10 @@
 ### Acceptance Criteria
 
 - ✅ All tests pass (100% success rate)
-- ✅ Code coverage >= 71.8%
-- ✅ All 8 examples work with all applicable providers
+- ✅ Code coverage >= 75% (improved with tool tests)
+- ✅ All 5 examples work with all applicable providers
+- ✅ All 10 built-in tools tested and working
+- ✅ Built-in tools have 100% test coverage
 - ✅ Documentation is complete and accurate
 - ✅ v0.2.0 tag created and pushed
 - ✅ GitHub release published with comprehensive notes
@@ -102,75 +410,16 @@
 
 ---
 
-## 📦 v0.3.0 Planning - Built-in Tools Completion
+## 📦 AFTER v0.2.0: v0.3.0 Planning - System & Data Tools
 
 **Target Date**: November 2025  
-**Estimated Time**: 2-3 weeks  
-**Status**: ⏸️ PLANNED
+**Estimated Time**: 2 weeks  
+**Status**: ⏸️ FUTURE (after v0.2.0 release)
 
-### Phase 1: Complete File & Web Tools (Week 1)
+**Note**: Phase 1 tools (10 tools) will be completed BEFORE v0.2.0 release.  
+v0.3.0 will focus on Phase 2-3 tools (8 additional tools).
 
-#### File Tools (2/4 remaining)
-- [ ] **file_write** - Write content to files
-  - [ ] Implement write tool (est. 150 lines)
-  - [ ] Support append mode
-  - [ ] Backup existing files option
-  - [ ] Path validation and security
-  - [ ] Unit tests (est. 100 lines)
-  - [ ] Integration tests with LLM
-
-- [ ] **file_delete** - Delete files/directories
-  - [ ] Implement delete tool (est. 120 lines)
-  - [ ] Recursive deletion for directories
-  - [ ] Confirmation mechanism for dangerous operations
-  - [ ] Security restrictions (no system files)
-  - [ ] Unit tests (est. 80 lines)
-  - [ ] Mark as unsafe tool
-
-#### Web Tools (3/3 new)
-- [ ] **web_fetch** - HTTP GET requests
-  - [ ] Implement fetch tool (est. 180 lines)
-  - [ ] Support custom headers
-  - [ ] Timeout configuration
-  - [ ] Response size limits (1MB default)
-  - [ ] URL validation (prevent SSRF)
-  - [ ] Unit tests with mock HTTP server
-  - [ ] Integration tests with real URLs
-
-- [ ] **web_post** - HTTP POST requests
-  - [ ] Implement POST tool (est. 150 lines)
-  - [ ] Support JSON and form data
-  - [ ] Custom headers
-  - [ ] Unit tests
-
-- [ ] **web_scrape** - Basic web scraping
-  - [ ] Implement scrape tool (est. 200 lines)
-  - [ ] CSS selector support
-  - [ ] Extract structured data
-  - [ ] Rate limiting
-  - [ ] Respect robots.txt
-  - [ ] Unit tests
-
-#### DateTime Tools (2/3 remaining)
-- [ ] **datetime_format** - Format conversion
-  - [ ] Implement format converter (est. 100 lines)
-  - [ ] Support common formats
-  - [ ] Timezone conversion
-  - [ ] Unit tests
-
-- [ ] **datetime_calc** - Date calculations
-  - [ ] Implement date math (est. 120 lines)
-  - [ ] Add/subtract time units
-  - [ ] Difference between dates
-  - [ ] Unit tests
-
-**Week 1 Deliverables**:
-- 7 new tools implemented
-- ~1,000 lines of production code
-- ~500 lines of tests
-- Complete Phase 1 tools (10/10)
-
-### Phase 2: System & Data Tools (Week 2)
+### Phase 2: System & Data Tools (6 tools)
 
 #### System Tools (3/3 new)
 - [ ] **system_exec** - Execute shell commands (DANGEROUS)
@@ -213,13 +462,12 @@
   - [ ] Parse to JSON
   - [ ] Unit tests
 
-**Week 2 Deliverables**:
+**Deliverables**:
 - 6 new tools implemented
 - ~900 lines of production code
 - ~400 lines of tests
-- Complete Phase 2 tools (16/16)
 
-### Phase 3: Math Tools & Polish (Week 3)
+### Phase 3: Math Tools & Polish (2 tools)
 
 #### Math Tools (2/2 new)
 - [ ] **math_calculate** - Mathematical calculations
