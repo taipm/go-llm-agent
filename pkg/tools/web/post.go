@@ -17,13 +17,13 @@ import (
 
 // PostConfig holds configuration for POST requests
 type PostConfig struct {
-	Timeout          time.Duration
-	MaxResponseSize  int64
-	AllowedDomains   []string
-	FollowRedirects  bool
-	MaxRedirects     int
-	UserAgent        string
-	AllowPrivateIPs  bool
+	Timeout         time.Duration
+	MaxResponseSize int64
+	AllowedDomains  []string
+	FollowRedirects bool
+	MaxRedirects    int
+	UserAgent       string
+	AllowPrivateIPs bool
 }
 
 // PostTool implements HTTP POST functionality

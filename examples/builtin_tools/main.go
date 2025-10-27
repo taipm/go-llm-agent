@@ -58,6 +58,8 @@ func main() {
 
 	// Register datetime tools
 	registry.Register(datetime.NewNowTool())
+	registry.Register(datetime.NewFormatTool())
+	registry.Register(datetime.NewCalcTool())
 
 	// Register web tools
 	webConfig := web.Config{

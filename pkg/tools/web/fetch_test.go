@@ -445,13 +445,13 @@ func TestFetchTool_Execute_Validation(t *testing.T) {
 
 func TestFetchTool_Config(t *testing.T) {
 	config := Config{
-		Timeout:          5 * time.Second,
-		MaxResponseSize:  1024,
-		AllowedDomains:   []string{"example.com"},
-		FollowRedirects:  false,
-		MaxRedirects:     5,
-		UserAgent:        "test-agent",
-		AllowPrivateIPs:  true,
+		Timeout:         5 * time.Second,
+		MaxResponseSize: 1024,
+		AllowedDomains:  []string{"example.com"},
+		FollowRedirects: false,
+		MaxRedirects:    5,
+		UserAgent:       "test-agent",
+		AllowPrivateIPs: true,
 	}
 
 	tool := NewFetchTool(config)

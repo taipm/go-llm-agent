@@ -33,3 +33,4 @@ examples/multi_provider/.env
 # Editor/IDE
 # .idea/
 # .vscode/
+builtin_tools
