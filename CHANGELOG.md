@@ -69,7 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All network tools loaded automatically by default
   - Professional libraries used: miekg/dns, go-ping/ping, likexian/whois-parser, oschwald/geoip2-golang
   - Comprehensive README with examples and troubleshooting
-  - Updated ToolCount from 20 to 24 (25 with GeoIP database)
+  - CategoryNetwork added to tool categories
+  - Updated ToolCount from 20 to 24 (28 total with Gmail tools)
 
 ### Changed
 

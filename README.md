@@ -24,12 +24,13 @@ Switch between providers with **zero code changes** - just update your environme
 - 🚀 **Simple & Intuitive API** - Start building in minutes
 - 🔄 **Multi-Provider Support** - Ollama, OpenAI, Gemini with unified interface
 - 🏭 **Factory Pattern** - Auto-detect provider from environment
-- 🔧 **Tool System** - Let agents perform real-world tasks
+- 🔧 **28 Built-in Tools** - File ops, web, database, network, email automation (8 categories)
 - 💬 **Conversation Memory** - Maintain context across conversations
 - 📡 **Streaming Responses** - Real-time output for better UX
 - 🎯 **Provider Flexibility** - Switch providers without code changes
 - 📦 **Production Ready** - 71.8% test coverage, comprehensive error handling
 - 🧪 **Fully Tested** - Compatibility tests across all providers
+- 🔒 **Security First** - SSRF prevention, path validation, OAuth2 support
 
 ## 🎯 Use Cases
 
@@ -537,11 +538,187 @@ mem := memory.NewBuffer(200) // Tùy chỉnh 200 messages
 agent := agent.New(provider, agent.WithMemory(mem))
 ```
 
-## 📖 Documentation
+## � Built-in Tools (28 Tools, 8 Categories)
 
-- [� QUICKSTART.md](QUICKSTART.md) - Get started in 5 minutes
-- [�📋 SPEC.md](SPEC.md) - Technical specification and architecture
-- [� PROVIDER_COMPARISON.md](PROVIDER_COMPARISON.md) - Provider comparison guide
+The library includes **28 production-ready tools** across 8 categories. Most tools are **auto-loaded by default** for instant use!
+
+### Tool Categories
+
+| Category | Tools | Auto-loaded | Description |
+|----------|-------|-------------|-------------|
+| 📁 **File** | 4 | ✅ Yes | Read, write, list, delete files with security |
+| 🌐 **Web** | 3 | ✅ Yes | HTTP GET/POST, web scraping with SSRF prevention |
+| 📅 **DateTime** | 3 | ✅ Yes | Current time, formatting, date calculations |
+| 💻 **System** | 3 | ✅ Yes | System info, process list, installed apps |
+| 🧮 **Math** | 2 | ✅ Yes | Expression evaluation, statistics |
+| 🗄️ **Database** | 5 | ✅ Yes | MongoDB operations (connect, CRUD) |
+| 🌍 **Network** | 5 | ✅ Yes | DNS, ping, WHOIS, SSL certs, IP geolocation |
+| 📧 **Email** | 4 | ⚠️ Opt-in | Gmail integration (requires OAuth2) |
+
+**Total: 24 auto-loaded + 4 Gmail (opt-in) = 28 tools**
+
+### Quick Start with Built-in Tools
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/taipm/go-llm-agent/pkg/agent"
+    "github.com/taipm/go-llm-agent/pkg/builtin"
+    "github.com/taipm/go-llm-agent/pkg/provider"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // 1. Auto-detect LLM provider
+    llm, err := provider.FromEnv()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 2. Load all 24 built-in tools (one line!)
+    registry := builtin.GetRegistry()
+    tools := registry.ListTools()
+    
+    // 3. Create agent with tools
+    agent := agent.New(llm, agent.WithTools(tools))
+    
+    // 4. Agent can now use all tools automatically!
+    response, err := agent.Chat(ctx, "What files are in the current directory?")
+    fmt.Println(response)
+    // Agent will automatically call file_list tool
+}
+```
+
+### Featured Tools
+
+<details>
+<summary><b>📁 File Tools</b> - Secure file operations</summary>
+
+- `file_read` - Read file content with size limits
+- `file_write` - Write/append content with backups
+- `file_list` - List directory with pattern matching
+- `file_delete` - Safe deletion with protected paths
+
+**Security**: Path validation, size limits (10MB), directory traversal prevention
+
+</details>
+
+<details>
+<summary><b>🌐 Web Tools</b> - HTTP requests and web scraping</summary>
+
+- `web_fetch` - HTTP GET with SSRF prevention
+- `web_post` - HTTP POST (JSON/form data)
+- `web_scrape` - Extract data with CSS selectors
+
+**Security**: Private IP blocking, domain whitelisting, timeout protection
+
+</details>
+
+<details>
+<summary><b>🌍 Network Tools</b> - Professional network diagnostics</summary>
+
+- `network_dns_lookup` - DNS queries (A, AAAA, MX, TXT, NS, CNAME, SOA, PTR)
+- `network_ping` - ICMP ping & TCP connectivity checks
+- `network_whois_lookup` - Domain registration info
+- `network_ssl_cert_check` - SSL/TLS certificate validation
+- `network_ip_info` - IP geolocation with GeoIP2 database
+
+**Libraries**: miekg/dns, go-ping, likexian/whois, oschwald/geoip2
+
+</details>
+
+<details>
+<summary><b>📧 Gmail Tools</b> - Email automation (OAuth2 required)</summary>
+
+- `gmail_send` - Send emails (to, cc, bcc, HTML)
+- `gmail_read` - Read messages by ID (full/metadata/minimal)
+- `gmail_list` - List with filters & pagination
+- `gmail_search` - Advanced search (Gmail query syntax)
+
+**Setup**: Requires Google Cloud credentials ([Setup Guide](pkg/tools/gmail/README.md))
+
+**Enable Gmail tools:**
+```go
+config := builtin.Config{NoGmail: false}
+registry := builtin.GetRegistryWithConfig(config)
+```
+
+</details>
+
+<details>
+<summary><b>🗄️ MongoDB Tools</b> - Database operations</summary>
+
+- `mongodb_connect` - Connection pooling (max 10)
+- `mongodb_find` - Query with filtering/sorting
+- `mongodb_insert` - Insert documents (batch up to 100)
+- `mongodb_update` - UpdateOne/UpdateMany
+- `mongodb_delete` - DeleteOne/DeleteMany with safety
+
+**Safety**: Empty filter prevention, connection pool limits
+
+</details>
+
+<details>
+<summary><b>🧮 Math & DateTime Tools</b> - Calculations and time operations</summary>
+
+**Math**:
+- `math_calculate` - Safe expression evaluation (govaluate)
+- `math_stats` - Statistics (mean, median, mode, stddev) using gonum
+
+**DateTime**:
+- `datetime_now` - Current time with formats/timezones
+- `datetime_format` - Format & timezone conversion
+- `datetime_calc` - Date arithmetic (add/subtract/diff)
+
+</details>
+
+### Tool Configuration
+
+```go
+// Customize tool behavior
+config := builtin.Config{
+    // File tools
+    NoFile: false,
+    File: builtin.FileConfig{
+        AllowedPaths:   []string{"/tmp", "/data"},
+        ProtectedPaths: []string{"/etc", "/sys"},
+        MaxFileSize:    5 * 1024 * 1024, // 5MB
+    },
+    
+    // Web tools
+    NoWeb: false,
+    Web: builtin.WebConfig{
+        AllowPrivateIPs: false,
+        AllowedDomains:  []string{"api.example.com"},
+        Timeout:         30 * time.Second,
+    },
+    
+    // Gmail tools (disabled by default)
+    NoGmail: false,
+    Gmail: builtin.GmailConfig{
+        Config: gmail.GmailConfig{
+            CredentialsFile: "credentials.json",
+            TokenFile:       "token.json",
+        },
+    },
+}
+
+registry := builtin.GetRegistryWithConfig(config)
+```
+
+See [pkg/builtin/README.md](pkg/builtin/README.md) for complete documentation.
+
+## �📖 Documentation
+
+- [🚀 QUICKSTART.md](QUICKSTART.md) - Get started in 5 minutes
+- [� SPEC.md](SPEC.md) - Technical specification and architecture
+- [🔀 PROVIDER_COMPARISON.md](PROVIDER_COMPARISON.md) - Provider comparison guide
 - [📚 Examples](examples/) - Complete code examples for all providers
 - [🔧 API Reference](https://pkg.go.dev/github.com/taipm/go-llm-agent) - Go package docs
 - [📝 TODO.md](TODO.md) - Development progress and roadmap
@@ -605,9 +782,17 @@ agent := agent.New(provider, agent.WithMemory(mem))
 
 ### 🔮 v0.3.0 - Advanced Features (Future)
 
-- [ ] 10+ built-in tools (file ops, HTTP, database, etc.)
+- ✅ **28 built-in tools** across 8 categories (file, web, datetime, system, math, database, network, email)
+  - ✅ File operations (read, write, list, delete)
+  - ✅ Web tools (HTTP GET/POST, web scraping)
+  - ✅ DateTime tools (now, format, calculate)
+  - ✅ System tools (info, processes, apps)
+  - ✅ Math tools (calculate, statistics)
+  - ✅ MongoDB database tools (connect, find, insert, update, delete)
+  - ✅ Network diagnostic tools (DNS, ping, WHOIS, SSL, IP info)
+  - ✅ Gmail tools (send, read, list, search) - OAuth2 required
 - [ ] Persistent storage (SQLite, PostgreSQL)
-- [ ] Vector database integration
+- [ ] Vector database integration (Qdrant)
 - [ ] ReAct pattern implementation
 - [ ] Multi-agent collaboration
 - [ ] Advanced configuration system
