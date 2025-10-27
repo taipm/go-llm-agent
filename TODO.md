@@ -5,8 +5,534 @@
 ## Current Status
 
 **Project**: go-llm-agent  
-**Version**: v0.4.0-alpha (Auto-Reasoning COMPLETED - 20% of v0.4.0)  
-**Last Updated**: October 27, 2025
+**Version**: v0.4.0-alpha+vector (Auto-Reasoning + Vector Memory COMPLETED)  
+**Last Updated**: October 27, 2025  
+**Progress**: Phase 1.1 + 2.1 ✅ COMPLETE (55% of v0.4.0)
+
+---
+
+## 🎯 INTELLIGENCE REASSESSMENT - v0.4.0-alpha+vector
+
+> **Critical Update**: Phase 1.1 (ReAct) + Phase 2.1 (Vector Memory) discovered to be 90% complete!  
+> **Discovery Date**: October 27, 2025  
+> **Assessment**: Infrastructure exists, self-learning capabilities needed
+
+### Current Intelligence Score: 6.8/10 (↑0.8 from baseline)
+
+| Dimension | Before | Current | Target | Status | Priority |
+|-----------|--------|---------|--------|--------|----------|
+| **Reasoning** | 5.0 | 7.0 | 8.0 | ✅ ReAct + CoT working | **HIGH** (Self-improvement needed) |
+| **Memory** | 6.0 | 7.5 | 8.5 | ✅ Vector search working | **HIGH** (Learning persistence needed) |
+| **Tools** | 8.5 | 8.5 | 9.0 | 28 tools complete | **MEDIUM** (Need parallel execution) |
+| **Learning** | 2.0 | 3.0 | 9.0 | ❌ **CRITICAL GAP** | **🔥 URGENT** |
+| **Architecture** | 7.0 | 7.5 | 8.0 | Clean, extensible | **LOW** |
+| **Scalability** | 5.5 | 6.5 | 7.5 | Vector DB integrated | **MEDIUM** |
+| **OVERALL IQ** | **6.0** | **6.8** | **8.5** | +0.8 improvement | **Gap: -1.7** |
+
+---
+
+## 🚨 CRITICAL FINDING: Self-Learning Missing!
+
+### The Problem
+
+**Current State**: Agent has memory but **DOESN'T LEARN FROM IT**
+```go
+// What happens now:
+1. Agent uses tool incorrectly → Gets error
+2. Error saved to memory
+3. Next time: Agent makes SAME mistake!
+4. No learning loop, no improvement
+
+// Example:
+Day 1: agent.Chat("Calculate 2+2")
+  → Calls web_fetch instead of math_calculate ❌
+  → Error saved to vector memory
+  
+Day 2: agent.Chat("Calculate 3+3")  
+  → Calls web_fetch AGAIN! ❌❌
+  → Same mistake repeated!
+```
+
+**Root Cause**: No feedback loop connecting memory → reasoning → behavior change
+
+### What's Missing: Self-Learning System
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SELF-LEARNING LOOP                        │
+│                      (NOT IMPLEMENTED)                       │
+└─────────────────────────────────────────────────────────────┘
+
+1. EXPERIENCE COLLECTION ❌
+   └─ Store: successful actions, failed actions, corrections
+   
+2. PATTERN RECOGNITION ❌
+   └─ Analyze: "When I use tool X for task Y, success rate is Z%"
+   
+3. STRATEGY ADJUSTMENT ❌
+   └─ Update: tool selection priorities based on past success
+   
+4. VERIFICATION ❌
+   └─ Check: "Did my strategy change improve outcomes?"
+   
+5. CONTINUOUS IMPROVEMENT ❌
+   └─ Iterate: Keep learning from new experiences
+```
+
+### Intelligence Without Learning = Stagnation
+
+**Analogy**: Current agent is like a student who:
+- ✅ Has a textbook (vector memory)
+- ✅ Can read and understand (reasoning)
+- ✅ Has tools to solve problems (28 tools)
+- ❌ **NEVER learns from mistakes**
+- ❌ **Makes same errors repeatedly**
+- ❌ **Doesn't improve over time**
+
+---
+
+## 🎓 SELF-LEARNING ARCHITECTURE (NEW PRIORITY #1)
+
+### Phase 3: Learning & Adaptation System (v0.4.0-beta)
+
+**Goal**: Agent learns from experience, improves tool selection, reduces errors over time
+
+#### 3.1 Experience Tracking System
+
+**Purpose**: Record outcomes of every action for later analysis
+
+```go
+// pkg/learning/experience.go (NEW)
+
+type Experience struct {
+    ID          string
+    Timestamp   time.Time
+    
+    // Context
+    Query       string
+    Intent      string              // What user wanted
+    Reasoning   ReasoningPattern    // CoT, ReAct, Simple
+    
+    // Action
+    ToolCalled  string
+    Arguments   map[string]interface{}
+    
+    // Outcome
+    Success     bool
+    Result      interface{}
+    Error       error
+    
+    // Feedback
+    UserFeedback *Feedback         // Optional: "This answer was good/bad"
+    Correction   *string           // What should have been done
+    
+    // Metrics
+    LatencyMs    int64
+    TokensUsed   int
+    Confidence   float64           // Agent's self-assessed confidence
+}
+
+type ExperienceStore struct {
+    vectorMemory *memory.VectorMemory
+    sqliteDB     *sql.DB
+}
+
+func (e *ExperienceStore) Record(ctx context.Context, exp Experience) error
+func (e *ExperienceStore) Query(ctx context.Context, filters ExperienceFilters) ([]Experience, error)
+func (e *ExperienceStore) GetToolSuccessRate(toolName string, intentPattern string) float64
+```
+
+**Implementation Tasks**:
+- [ ] **Task 3.1.1**: Create experience data structures
+- [ ] **Task 3.1.2**: Integrate experience recording into agent.Chat()
+- [ ] **Task 3.1.3**: Store experiences in vector memory (semantic search)
+- [ ] **Task 3.1.4**: SQLite storage for structured queries
+- [ ] **Task 3.1.5**: Add feedback collection API
+
+**Example Usage**:
+```go
+// Automatic experience recording
+exp := learning.Experience{
+    Query: "Calculate 15 * 23",
+    Intent: "mathematical_calculation",
+    ToolCalled: "web_fetch",      // WRONG TOOL
+    Success: false,
+    Error: errors.New("404 not found"),
+}
+experienceStore.Record(ctx, exp)
+
+// Later: Query similar experiences
+similar := experienceStore.Query(ctx, ExperienceFilters{
+    IntentPattern: "mathematical_calculation",
+    MinSimilarity: 0.8,
+})
+// Finds: "Last 5 times for math, web_fetch failed 100%, math_calculate succeeded 100%"
+```
+
+---
+
+#### 3.2 Tool Selection Learning
+
+**Purpose**: Learn which tools work best for which queries
+
+```go
+// pkg/learning/tool_selector.go (NEW)
+
+type ToolSelector struct {
+    experiences  *ExperienceStore
+    toolRegistry *tools.Registry
+    
+    // Learning parameters
+    explorationRate float64  // Probability of trying new tools (default: 0.1)
+    minConfidence   float64  // Minimum confidence to use learned strategy
+}
+
+type ToolRecommendation struct {
+    ToolName   string
+    Confidence float64  // 0.0 to 1.0
+    Reasoning  string   // "Used successfully 15 times for similar queries"
+    
+    // Supporting evidence
+    SuccessRate     float64
+    SampleSize      int
+    AvgLatency      int64
+    AlternativeTools []string  // Other tools that might work
+}
+
+func (t *ToolSelector) RecommendTool(ctx context.Context, query string) (*ToolRecommendation, error) {
+    // 1. Analyze query intent
+    intent := t.analyzeIntent(query)
+    
+    // 2. Search for similar past experiences
+    similar := t.experiences.Query(ctx, ExperienceFilters{
+        IntentPattern: intent,
+        MinSimilarity: 0.75,
+        Limit: 100,
+    })
+    
+    // 3. Calculate success rates per tool
+    toolStats := t.calculateToolStats(similar)
+    
+    // 4. Select best tool based on:
+    //    - Success rate (primary)
+    //    - Latency (secondary)
+    //    - Recency (tertiary)
+    best := t.selectBestTool(toolStats)
+    
+    // 5. Apply exploration: occasionally try different tools
+    if rand.Float64() < t.explorationRate {
+        return t.explorativeSelection(toolStats, best)
+    }
+    
+    return best, nil
+}
+
+func (t *ToolSelector) UpdateFromFeedback(experience Experience, feedback Feedback) {
+    // Reinforcement learning: adjust tool selection based on outcomes
+    // Increase confidence in successful tools
+    // Decrease confidence in failed tools
+}
+```
+
+**Implementation Tasks**:
+- [ ] **Task 3.2.1**: Implement intent analysis (keywords + embeddings)
+- [ ] **Task 3.2.2**: Build tool statistics calculator
+- [ ] **Task 3.2.3**: Create exploration-exploitation balance (ε-greedy)
+- [ ] **Task 3.2.4**: Integrate with agent's tool selection logic
+- [ ] **Task 3.2.5**: Add visualization for tool performance over time
+
+**Learning Algorithm**:
+```
+Initial state: All tools have equal probability (uniform distribution)
+
+After each experience:
+  If success:
+    confidence[tool][intent] += α * (1 - confidence[tool][intent])
+  If failure:
+    confidence[tool][intent] -= β * confidence[tool][intent]
+    
+Where:
+  α = learning rate for positive outcomes (default: 0.1)
+  β = learning rate for negative outcomes (default: 0.15)
+  
+Over time:
+  Good tools → confidence approaches 1.0
+  Bad tools → confidence approaches 0.0
+```
+
+---
+
+#### 3.3 Error Pattern Recognition
+
+**Purpose**: Detect recurring errors and prevent them
+
+```go
+// pkg/learning/error_patterns.go (NEW)
+
+type ErrorPattern struct {
+    ID          string
+    Pattern     string              // Regex or semantic pattern
+    Description string              // Human-readable description
+    
+    // Detection
+    Occurrences []Experience        // Experiences matching this pattern
+    Frequency   int                 // How many times seen
+    FirstSeen   time.Time
+    LastSeen    time.Time
+    
+    // Solution
+    Correction  string              // How to fix this error
+    Prevention  string              // How to avoid this error
+    Confidence  float64             // How sure we are about the solution
+}
+
+type ErrorAnalyzer struct {
+    patterns    []ErrorPattern
+    experiences *ExperienceStore
+}
+
+func (e *ErrorAnalyzer) DetectPatterns(ctx context.Context) ([]ErrorPattern, error) {
+    // 1. Fetch recent failed experiences
+    failures := e.experiences.Query(ctx, ExperienceFilters{
+        Success: false,
+        Limit: 1000,
+    })
+    
+    // 2. Cluster similar errors using vector embeddings
+    clusters := e.clusterByError(failures)
+    
+    // 3. For each cluster, extract common pattern
+    patterns := make([]ErrorPattern, 0)
+    for _, cluster := range clusters {
+        if len(cluster) >= 3 {  // At least 3 occurrences
+            pattern := e.extractPattern(cluster)
+            patterns = append(patterns, pattern)
+        }
+    }
+    
+    return patterns, nil
+}
+
+func (e *ErrorAnalyzer) SuggestCorrection(ctx context.Context, error error) (*ErrorPattern, error) {
+    // Search for known error patterns matching this error
+    // Return correction if found
+}
+```
+
+**Implementation Tasks**:
+- [ ] **Task 3.3.1**: Create error clustering algorithm (vector similarity)
+- [ ] **Task 3.3.2**: Build pattern extraction from clusters
+- [ ] **Task 3.3.3**: Implement correction suggestion logic
+- [ ] **Task 3.3.4**: Add prevention rules to agent's decision making
+- [ ] **Task 3.3.5**: Create error pattern dashboard
+
+**Example Error Patterns**:
+```
+Pattern 1: "Math calculation → web_fetch (100% failure rate)"
+  Correction: "Use math_calculate instead"
+  Prevention: "For queries with numbers and math operators, prefer math tools"
+
+Pattern 2: "Empty filter → mongodb_delete (safety violation)"
+  Correction: "Add explicit filter like {_id: ObjectId('...')}"
+  Prevention: "Never allow empty filter in delete operations"
+
+Pattern 3: "Large dataset → math_stats timeout"
+  Correction: "Use sampling for datasets > 1000 elements"
+  Prevention: "Check array length before calling math_stats"
+```
+
+---
+
+#### 3.4 Continuous Improvement Loop
+
+**Purpose**: Close the learning loop, measure improvement over time
+
+```go
+// pkg/learning/improvement.go (NEW)
+
+type ImprovementMetrics struct {
+    Period         time.Duration
+    
+    // Performance metrics
+    TotalQueries   int
+    SuccessRate    float64
+    AvgLatency     time.Duration
+    ErrorRate      float64
+    
+    // Learning metrics
+    NewPatterns    int          // New error patterns discovered
+    ToolChanges    int          // Times tool selection changed based on learning
+    Corrections    int          // Times error was auto-corrected
+    
+    // Comparison with baseline
+    BaselineSuccess float64
+    Improvement     float64     // % improvement in success rate
+}
+
+type LearningMonitor struct {
+    experiences  *ExperienceStore
+    toolSelector *ToolSelector
+    errorAnalyzer *ErrorAnalyzer
+}
+
+func (l *LearningMonitor) MeasureImprovement(ctx context.Context, period time.Duration) (*ImprovementMetrics, error) {
+    now := time.Now()
+    start := now.Add(-period)
+    
+    // Get experiences from period
+    recent := l.experiences.Query(ctx, ExperienceFilters{
+        StartTime: start,
+        EndTime: now,
+    })
+    
+    // Calculate metrics
+    metrics := &ImprovementMetrics{
+        Period: period,
+        TotalQueries: len(recent),
+    }
+    
+    // Calculate success rate
+    successes := 0
+    for _, exp := range recent {
+        if exp.Success {
+            successes++
+        }
+    }
+    metrics.SuccessRate = float64(successes) / float64(len(recent))
+    
+    // Compare with baseline (first 100 queries)
+    baseline := l.calculateBaseline(ctx)
+    metrics.BaselineSuccess = baseline
+    metrics.Improvement = ((metrics.SuccessRate - baseline) / baseline) * 100
+    
+    return metrics, nil
+}
+
+func (l *LearningMonitor) ReportProgress() string {
+    // Generate human-readable progress report
+    // "Last week: 500 queries, 92% success (+12% vs baseline)"
+    // "Learned 3 new patterns, prevented 15 errors"
+    // "Top improvement: math queries (65% → 95%)"
+}
+```
+
+**Implementation Tasks**:
+- [ ] **Task 3.4.1**: Create metrics calculation system
+- [ ] **Task 3.4.2**: Build baseline establishment logic
+- [ ] **Task 3.4.3**: Implement improvement tracking over time
+- [ ] **Task 3.4.4**: Add progress reporting (daily/weekly/monthly)
+- [ ] **Task 3.4.5**: Create learning visualization dashboard
+
+**Expected Results After 1 Week**:
+```
+Before Learning (Day 1):
+  Queries: 100
+  Success rate: 75%
+  Avg latency: 2.5s
+  Common errors: Wrong tool selection (15%), Timeout (10%)
+
+After Learning (Day 7):
+  Queries: 700
+  Success rate: 88% (+17% improvement!)
+  Avg latency: 1.8s (-28% faster)
+  Common errors: Timeout (5%), Rare edge cases (3%)
+  
+Learning achievements:
+  ✅ Learned to prefer math_calculate for calculations (95% → 100%)
+  ✅ Detected 3 error patterns and auto-corrected them
+  ✅ Improved tool selection latency by caching recommendations
+  ✅ Reduced redundant web_fetch calls by 40%
+```
+
+---
+
+#### 3.5 Feedback Integration
+
+**Purpose**: Allow users to teach the agent
+
+```go
+// pkg/learning/feedback.go (NEW)
+
+type Feedback struct {
+    ExperienceID string
+    Rating       FeedbackRating  // Positive, Negative, Neutral
+    Comment      string          // Optional explanation
+    Correction   *Correction     // What should have been done
+    Timestamp    time.Time
+}
+
+type FeedbackRating int
+const (
+    Negative FeedbackRating = -1
+    Neutral  FeedbackRating = 0
+    Positive FeedbackRating = 1
+)
+
+type Correction struct {
+    ShouldUseTool   string
+    ShouldNotUseTool string
+    BetterApproach   string
+}
+
+// Agent API extension
+func (a *Agent) ChatWithFeedback(ctx context.Context, message string) (*Response, error) {
+    resp, err := a.Chat(ctx, message)
+    
+    // Prompt user for feedback
+    fmt.Println("\nWas this answer helpful? (y/n/skip): ")
+    // Store feedback and learn from it
+    
+    return resp, err
+}
+
+func (a *Agent) SubmitFeedback(experienceID string, feedback Feedback) error {
+    // Update tool selector confidence
+    // Update error patterns
+    // Trigger immediate learning update
+}
+```
+
+**Implementation Tasks**:
+- [ ] **Task 3.5.1**: Create feedback data structures
+- [ ] **Task 3.5.2**: Add feedback API to agent
+- [ ] **Task 3.5.3**: Implement feedback processing logic
+- [ ] **Task 3.5.4**: Update learning models based on feedback
+- [ ] **Task 3.5.5**: Add interactive feedback examples
+
+---
+
+### Self-Learning Timeline & Milestones
+
+**Week 1-2: Experience Tracking** (Tasks 3.1.x)
+- [ ] Implement experience data structures
+- [ ] Integrate recording into agent
+- [ ] Set up dual storage (vector + SQLite)
+- **Milestone 1**: Agent records all actions with outcomes
+
+**Week 3-4: Tool Selection Learning** (Tasks 3.2.x)
+- [ ] Build intent analysis
+- [ ] Implement tool statistics
+- [ ] Create exploration-exploitation logic
+- **Milestone 2**: Agent learns which tools work best
+
+**Week 5-6: Error Recognition & Prevention** (Tasks 3.3.x)
+- [ ] Implement error clustering
+- [ ] Build pattern extraction
+- [ ] Add prevention rules
+- **Milestone 3**: Agent avoids known mistakes
+
+**Week 7-8: Continuous Improvement** (Tasks 3.4.x + 3.5.x)
+- [ ] Create metrics tracking
+- [ ] Build progress reporting
+- [ ] Add feedback integration
+- **Milestone 4**: Agent improves measurably over time
+
+**Success Criteria**:
+- [ ] Success rate improves by ≥10% after 1 week of usage
+- [ ] Tool selection errors decrease by ≥50%
+- [ ] Agent detects and prevents ≥3 common error patterns
+- [ ] Learning dashboard shows clear improvement trends
+- [ ] User feedback integration works in examples
 
 ---
 
@@ -42,218 +568,97 @@ answer := agent.Chat(ctx, query)  // Auto-selects CoT/ReAct/Simple! ✨
 
 ---
 
-## 🧠 v0.4.0 Planning - Intelligence Upgrade (CURRENT FOCUS)
+## 🧠 v0.4.0 Planning - Intelligence Upgrade (REVISED PRIORITIES)
 
-> **Strategic Pivot**: Intelligence Analysis shows current IQ at **6.0/10** (Intermediate level).  
-> **Critical Gap**: Excellent tools (8.5/10) but weak reasoning (5/10) and basic memory (6/10).  
-> **Objective**: Upgrade to **IQ 7.5-8.0/10** by implementing advanced reasoning + memory systems.  
+> **Strategic Update**: Phase 1.1 + 2.1 discovered **90% complete**! Infrastructure exists.  
+> **New Critical Gap**: **SELF-LEARNING** (2.0/10) - Agent doesn't improve from experience  
+> **Revised Objective**: Add self-learning (Phase 3) → Target IQ **8.5/10**  
 > **Target**: January-February 2026
 
-### Intelligence Assessment Summary
+### Revised Priority Order
 
-| Dimension | Current Score | Target Score | Gap Analysis |
-|-----------|---------------|--------------|--------------|
-| **Reasoning** | 5.0/10 | 8.0/10 | Missing ReAct, CoT, Planning, Reflection |
-| **Memory** | 6.0/10 | 8.0/10 | No vector search, no semantic retrieval, no persistence |
-| **Tools** | 8.5/10 | 9.0/10 | Excellent count (28), need parallel execution |
-| **Architecture** | 7.0/10 | 8.0/10 | Clean but missing Strategy, Observer patterns |
-| **Scalability** | 5.5/10 | 7.5/10 | No persistence, no distributed memory, no caching |
-| **OVERALL IQ** | **6.0/10** | **8.0/10** | **+2.0 points improvement needed** |
+**URGENT** (Phase 3): Self-Learning System
+- Agent currently repeats mistakes
+- No improvement over time despite having memory
+- Critical for production use
 
-### Why Phase 1 & 2 Must Be Done Together
+**HIGH** (Phase 1.3-1.4): Planning & Reflection
+- Builds on existing ReAct/CoT
+- Enhances reasoning quality
 
-**Dependency Analysis**:
-```
-Reasoning ←→ Memory (Bidirectional dependency)
-
-ReAct Pattern:
-  ├─ Needs: Access to past reasoning steps (Memory)
-  └─ Provides: Structured thought history (Feeds Memory)
-
-Chain-of-Thought:
-  ├─ Needs: Context from similar past problems (Semantic Memory)
-  └─ Provides: Step-by-step reasoning chains (Enriches Memory)
-
-Task Planning:
-  ├─ Needs: Past plans and outcomes (Long-term Memory)
-  └─ Provides: Decomposed sub-tasks (Structured Memory)
-
-Self-Reflection:
-  ├─ Needs: Historical performance data (Vector Search)
-  └─ Provides: Quality metrics and corrections (Learning Data)
-```
-
-**Rationale**: 
-- Implementing reasoning without advanced memory = Agent forgets its thoughts
-- Implementing memory without reasoning = Collecting useless data
-- **Solution**: Parallel design + integrated implementation
+**MEDIUM** (Phase 2.2-2.4): Memory Persistence & Management
+- Vector memory works but not persistent
+- Needs importance scoring and cleanup
 
 ---
 
-## 🎯 Phase 1: Advanced Reasoning System (v0.4.0-alpha)
+## ✅ Phase 1.1 + 2.1: COMPLETED (Discovery)
 
-### Current Situation Analysis
+### What Was Discovered (October 27, 2025)
 
-**What we have**:
-```go
-// pkg/agent/agent.go - Simple iteration loop
-func (a *Agent) runLoop(...) {
-    for iteration := 0; iteration < a.options.MaxIterations; iteration++ {
-        response := a.provider.Chat(...)  // Black box thinking
-        if len(response.ToolCalls) == 0 { 
-            return response.Content        // No verification
-        }
-        // Execute tools, continue loop
-    }
-}
-```
+**Expected**: Need to implement from scratch  
+**Reality**: Infrastructure 90% complete! Just needed examples and cleanup
 
-**Problems identified**:
-1. ❌ **No explicit reasoning** - Agent's thinking is invisible (black box)
-2. ❌ **No step-by-step breakdown** - Can't handle complex multi-step tasks
-3. ❌ **No planning** - Reactive only, no proactive task decomposition
-4. ❌ **No self-correction** - Answers never verified or improved
-5. ❌ **No learning** - Can't improve from past mistakes
+**pkg/reasoning/react.go** (426 lines) - ✅ COMPLETE
+- ReActStep structures with Thought/Action/Observation/Reflection
+- SaveToMemory() integration
+- Structured logging
+- Used by agent's auto-reasoning system
 
-### 1.1 ReAct Pattern Implementation
+**pkg/reasoning/cot.go** (344 lines) - ✅ COMPLETE  
+- Chain-of-Thought step structures
+- SaveToMemory() integration
+- Step-by-step reasoning logging
+- Auto-selected for math/logic queries
 
-**What is ReAct?**
-```
-Reasoning + Acting in an explicit loop:
-  Thought → Action → Observation → Reflection → (repeat)
+**pkg/memory/vector.go** (471 lines) - ✅ COMPLETE
+- Full Qdrant integration
+- SearchSemantic() - cosine similarity search
+- HybridSearch() - keyword + vector
+- GetByCategory() - category filtering
+- GetMostImportant() - importance-based retrieval
+- Archive(), Export(), GetStats() - management functions
 
-Example:
-User: "Find the weather in Paris and convert temperature to Fahrenheit"
+**pkg/memory/embedder.go** (172 lines) - ✅ COMPLETE
+- Embedder interface abstraction
+- OllamaEmbedder (nomic-embed-text, mxbai-embed-large)
+- OpenAIEmbedder (text-embedding-3-small/large)
+- Automatic dimensionality detection
 
-Iteration 1:
-  Thought: "I need to get Paris weather first using weather API"
-  Action: call_tool("get_weather", {location: "Paris"})
-  Observation: "Temperature: 20°C, Condition: Sunny"
-  Reflection: "Got Celsius, need to convert to Fahrenheit"
+**pkg/types/types.go** - ✅ COMPLETE
+- AdvancedMemory interface defined
+- MessageCategory enum (factual, procedural, reasoning, etc.)
+- Clean interface design
 
-Iteration 2:
-  Thought: "Convert 20°C to Fahrenheit using formula"
-  Action: call_tool("calculate", {expression: "20 * 9/5 + 32"})
-  Observation: "Result: 68"
-  Reflection: "Conversion complete, can answer now"
+**What Was Created**:
+- [x] `examples/vector_memory_agent/main.go` (219 lines)
+  - 3-phase demo: teach, semantic search, recall
+  - Graceful degradation to BufferMemory
+  - Tested with Qdrant - **works perfectly!**
 
-Final Answer: "The weather in Paris is sunny with 68°F (20°C)"
-```
+**What Was Cleaned Up**:
+- [x] Deleted pkg/embedding duplicate
+- [x] Removed 3 outdated examples
+- [x] Fixed react_with_tools
+- [x] All 17 examples build successfully
 
-**Implementation Tasks**:
+**Results**:
+- ✅ Semantic search working (finds similar conversations by meaning)
+- ✅ ReAct steps saved to memory
+- ✅ CoT chains stored with embeddings
+- ✅ Vector similarity search operational
+- ✅ All 28 tools integrated
 
-- [ ] **Task 1.1.1**: Create `pkg/reasoning/react.go` with core structures
-  ```go
-  type ReActStep struct {
-      Iteration   int
-      Thought     string  // What am I thinking?
-      Action      string  // What tool should I call?
-      Observation string  // What did I observe?
-      Reflection  string  // What did I learn?
-      Timestamp   time.Time
-  }
-  
-  type ReActAgent struct {
-      baseAgent *agent.Agent
-      steps     []ReActStep
-      maxSteps  int
-  }
-  ```
-
-- [ ] **Task 1.1.2**: Implement ReAct prompting system
-  ```go
-  func (r *ReActAgent) buildReActPrompt(query string, history []ReActStep) string {
-      // Teach agent to think explicitly:
-      // "Thought: [your reasoning]"
-      // "Action: [tool_name with params]"
-      // "Observation: [tool result]"
-      // "Reflection: [what you learned]"
-  }
-  ```
-
-- [ ] **Task 1.1.3**: Integrate ReAct loop into Agent
-  - Modify `agent.runLoop()` to capture Thought/Action/Observation/Reflection
-  - Store ReActSteps in memory (needs Phase 2 integration)
-  - Add structured logging for each step
-
-- [ ] **Task 1.1.4**: Create `examples/react_agent/main.go`
-  - Complex task: "Research Go 1.25 new features and summarize"
-  - Show explicit reasoning steps
-  - Compare vs non-ReAct agent
-
-**Expected Improvement**: Reasoning score **5/10 → 7/10** (+2 points)
-
-**Benefits**:
-- ✅ Transparent thinking process (debuggable)
-- ✅ Better handling of multi-step tasks
-- ✅ Clear error tracing (know where agent got stuck)
+**Gap**: These features exist but **agent doesn't learn from them**!
 
 ---
 
-### 1.2 Chain-of-Thought (CoT) Prompting
+## 🎯 Phase 1.3-1.4: Task Planning & Self-Reflection (NEXT PRIORITY)
 
-**What is CoT?**
-```
-Break complex problems into step-by-step reasoning before answering.
+> **Status**: Not started (depends on Phase 3 self-learning)  
+> **Rationale**: Planning and reflection are more valuable when agent can learn from them
 
-Example WITHOUT CoT:
-Q: "If a train travels 120km in 1.5 hours, what's its speed in mph?"
-A: "50 mph" (Wrong! No reasoning shown)
-
-Example WITH CoT:
-Q: "If a train travels 120km in 1.5 hours, what's its speed in mph?"
-A: "Let me think step by step:
-    Step 1: Calculate speed in km/h = 120 / 1.5 = 80 km/h
-    Step 2: Convert km to miles = 1 km = 0.621371 miles
-    Step 3: Calculate mph = 80 * 0.621371 = 49.7 mph
-    Answer: Approximately 50 mph"
-```
-
-**Implementation Tasks**:
-
-- [ ] **Task 1.2.1**: Create `pkg/reasoning/cot.go`
-  ```go
-  type CoTStep struct {
-      StepNumber  int
-      Description string
-      Reasoning   string
-      Result      interface{}
-  }
-  
-  type CoTPromptBuilder struct {
-      fewShotExamples []CoTExample
-  }
-  ```
-
-- [ ] **Task 1.2.2**: Build CoT prompt templates
-  ```go
-  func (c *CoTPromptBuilder) BuildPrompt(query string) string {
-      // Template: "Let's think step by step:\nStep 1: ..."
-      // Include few-shot examples for complex domains
-  }
-  ```
-
-- [ ] **Task 1.2.3**: Implement CoT parser
-  ```go
-  func ParseCoTResponse(response string) ([]CoTStep, string, error) {
-      // Extract "Step 1:", "Step 2:", etc.
-      // Return structured steps + final answer
-  }
-  ```
-
-- [ ] **Task 1.2.4**: Integrate with Agent system
-  - Add `WithCoT(enabled bool)` option
-  - Automatically apply CoT for complex queries (>50 words or math/logic)
-  - Store CoT steps in memory (Phase 2)
-
-**Expected Improvement**: Reasoning score **7/10 → 7.5/10** (+0.5 points)
-
-**Benefits**:
-- ✅ Fewer calculation errors
-- ✅ Better explanation quality
-- ✅ User can verify agent's logic
-
----
+### 1.3 Task Planning & Decomposition
 
 ### 1.3 Task Planning & Decomposition
 
@@ -430,158 +835,31 @@ With Reflection:
 
 ---
 
-## 🧠 Phase 2: Advanced Memory System (v0.4.0-beta)
+## 🧠 Phase 2: Memory Persistence & Management (v0.4.0-gamma)
 
-### Current Situation Analysis
+> **Status**: Core vector memory ✅ COMPLETE, persistence pending  
+> **What exists**: VectorMemory with Qdrant, semantic search, embeddings  
+> **What's missing**: Persistence (SQLite), importance scoring, cleanup strategies
 
-**What we have**:
-```go
-// pkg/memory/buffer.go - Simple FIFO buffer
-type BufferMemory struct {
-    messages []types.Message  // Plain array
-    maxSize  int              // Max 100 messages
-}
+### Current Memory State
 
-func (m *BufferMemory) Add(message types.Message) {
-    m.messages = append(m.messages, message)
-    // FIFO: Remove oldest when full
-}
+**What works** (pkg/memory/vector.go - 471 lines):
+- ✅ Qdrant vector database integration
+- ✅ SearchSemantic() - find similar conversations
+- ✅ HybridSearch() - keyword + vector combined
+- ✅ GetByCategory() - filter by message type
+- ✅ GetMostImportant() - importance-based retrieval
+- ✅ Archive(), Export(), GetStats() - management
+- ✅ OllamaEmbedder + OpenAIEmbedder working
 
-func (m *BufferMemory) GetHistory(limit int) []types.Message {
-    // Return last N messages (linear access only)
-}
-```
+**What's missing**:
+- ❌ Memory not persisted (lost on restart)
+- ❌ No SQLite for structured queries
+- ❌ No importance scoring algorithm
+- ❌ No automatic cleanup strategies
+- ❌ No memory size management
 
-**Problems identified**:
-1. ❌ **No semantic search** - Can't find relevant past conversations by meaning
-2. ❌ **No persistence** - Memory lost on restart
-3. ❌ **FIFO only** - Important context gets deleted
-4. ❌ **No categorization** - All messages treated equally
-5. ❌ **Linear retrieval** - Can't query "similar problems I solved before"
-
-### Why Advanced Memory is Critical for Reasoning
-
-**Example Scenario**:
-```
-Day 1:
-User: "How do I optimize Go database queries?"
-Agent: [Uses ReAct, CoT to research and explain connection pooling, 
-        prepared statements, indexing strategies]
-
-Day 2 (New session):
-User: "My Go app is slow with database operations"
-Agent WITHOUT advanced memory: Starts from scratch
-Agent WITH vector memory: 
-  - Semantic search finds similar conversation from Day 1
-  - Recalls successful optimization strategies
-  - Applies proven solutions immediately
-  - Much better answer quality
-```
-
----
-
-### 2.1 Vector Memory with Semantic Search
-
-**What is Vector Memory?**
-```
-Store conversations as embeddings (numerical vectors) for semantic similarity search.
-
-Traditional Memory:
-  Query: "database performance"
-  Search: Keyword match for "database" and "performance"
-  Result: Miss conversations about "DB optimization", "query speed"
-
-Vector Memory:
-  Query: "database performance"
-  Embedding: [0.23, 0.87, -0.45, ...] (768 dimensions)
-  Search: Cosine similarity in vector space
-  Result: Finds ALL related conversations:
-    - "How to optimize SQL queries" (similarity: 0.92)
-    - "Database connection pooling" (similarity: 0.89)
-    - "MongoDB indexing strategies" (similarity: 0.85)
-```
-
-**Implementation Tasks**:
-
-- [ ] **Task 2.1.1**: Design Memory interface extension
-  ```go
-  // Extend pkg/types/types.go
-  type AdvancedMemory interface {
-      Memory  // Embed existing interface
-      
-      // Semantic search
-      SearchSemantic(ctx context.Context, query string, limit int) ([]Message, error)
-      
-      // Vector operations
-      AddWithEmbedding(ctx context.Context, message Message, embedding []float32) error
-      
-      // Categorization
-      GetByCategory(ctx context.Context, category string, limit int) ([]Message, error)
-      
-      // Importance scoring
-      GetMostImportant(ctx context.Context, limit int) ([]Message, error)
-  }
-  ```
-
-- [ ] **Task 2.1.2**: Create `pkg/memory/vector.go` with Qdrant integration
-  ```go
-  type VectorMemory struct {
-      qdrant      *qdrant.Client
-      collection  string
-      embedder    Embedder
-      localCache  *BufferMemory  // Hot cache for recent messages
-  }
-  
-  type Embedder interface {
-      Embed(ctx context.Context, text string) ([]float32, error)
-  }
-  ```
-
-- [ ] **Task 2.1.3**: Implement embedding provider abstraction
-  ```go
-  // Support multiple embedding providers
-  type EmbeddingProvider struct {
-      provider string  // "ollama", "openai", "sentence-transformers"
-      model    string  // "nomic-embed-text", "text-embedding-3-small"
-  }
-  
-  func (e *EmbeddingProvider) Embed(ctx context.Context, text string) ([]float32, error)
-  ```
-
-- [ ] **Task 2.1.4**: Build hybrid search (keyword + vector)
-  ```go
-  func (v *VectorMemory) HybridSearch(ctx context.Context, query string, limit int) ([]Message, error) {
-      // Combine:
-      // 1. Vector similarity search (semantic)
-      // 2. BM25 keyword search (exact matches)
-      // 3. Rerank results by relevance
-  }
-  ```
-
-- [ ] **Task 2.1.5**: Add automatic categorization
-  ```go
-  type MessageCategory string
-  const (
-      CategoryFactual    MessageCategory = "factual"    // Facts, definitions
-      CategoryProcedural MessageCategory = "procedural" // How-to, tutorials
-      CategoryReasoning  MessageCategory = "reasoning"  // ReAct steps, CoT
-      CategoryPlanning   MessageCategory = "planning"   // Plans, strategies
-      CategoryReflection MessageCategory = "reflection" // Verifications, corrections
-  )
-  
-  func (v *VectorMemory) CategorizeMessage(ctx context.Context, message Message) MessageCategory
-  ```
-
-**Expected Improvement**: Memory score **6/10 → 8/10** (+2 points)
-
-**Integration with Reasoning**:
-- ReAct steps stored with embeddings → Find similar reasoning patterns
-- CoT chains indexed → Reuse step-by-step solutions
-- Plans vectorized → Discover similar tasks solved before
-
----
-
-### 2.2 Persistent Memory (SQLite + Qdrant)
+### 2.2 Persistent Memory (SQLite + Qdrant Sync)
 
 **Why Persistence Matters**:
 ```
@@ -978,4 +1256,91 @@ Needed: Keep important, archive unimportant
 - **Auto-loaded**: 24 tools (File, Web, DateTime, System, Math, Database, Network)
 - **Opt-in**: 4 Gmail tools (requires OAuth2 credentials setup)
 - **Examples**: 9 comprehensive demos with real-world use cases
-- **Next Focus**: Qdrant vector search tools for v0.3.0
+- **Next Focus**: Self-Learning System (Phase 3) - CRITICAL PRIORITY
+
+---
+
+## 📊 SUMMARY: Current State & Next Steps
+
+### What We Have (v0.4.0-alpha+vector)
+
+✅ **Auto-Reasoning** (Phase 1.1)
+- ReActAgent with Thought/Action/Observation/Reflection
+- CoTAgent with step-by-step reasoning
+- Automatic pattern selection (CoT/ReAct/Simple)
+- 25 builtin tools auto-loaded
+
+✅ **Vector Memory** (Phase 2.1)
+- Qdrant integration with semantic search
+- Ollama + OpenAI embedders
+- Hybrid search (keyword + vector)
+- Category-based filtering
+- Importance-based retrieval
+
+✅ **28 Builtin Tools** (v0.3.0)
+- File, Web, DateTime, System (13 tools)
+- Math, MongoDB, Network, Gmail (15 tools)
+- Professional libraries (goquery, govaluate, gonum, etc.)
+- Auto-loaded by default (24) + opt-in Gmail (4)
+
+### 🚨 Critical Gap: Self-Learning
+
+❌ **Agent repeats mistakes**
+- Uses wrong tools despite past failures
+- No learning from experience
+- Success rate doesn't improve over time
+
+❌ **Memory without learning**
+- Stores conversations but doesn't analyze them
+- Can search past experiences but doesn't use insights
+- Vector database underutilized
+
+### 🎯 Next Priority: Phase 3 (Self-Learning System)
+
+**Why urgent**: Production agents MUST improve over time
+
+**Timeline**: 8 weeks (Jan-Feb 2026)
+
+**Expected impact**: 
+- Success rate: 75% → 88% (+17%)
+- Tool selection errors: -50%
+- Learning IQ: 2.0 → 8.0 (+6.0 points!)
+- Overall IQ: 6.8 → 8.5 (+1.7 points)
+
+**Key components**:
+1. Experience tracking (record all actions + outcomes)
+2. Tool selection learning (ε-greedy exploration)
+3. Error pattern recognition (clustering + prevention)
+4. Continuous improvement (metrics + feedback)
+5. User feedback integration (human-in-the-loop)
+
+### 🗺️ Revised Roadmap
+
+**Phase 3** (Weeks 1-8): Self-Learning System → IQ 8.0
+- Experience tracking infrastructure
+- Tool selection learning algorithm
+- Error pattern recognition
+- Continuous improvement metrics
+
+**Phase 1.3-1.4** (Weeks 9-12): Planning + Reflection → IQ 8.3
+- Task decomposition and planning
+- Self-verification and correction
+- Quality improvements
+
+**Phase 2.2-2.4** (Weeks 13-16): Memory Persistence → IQ 8.5
+- SQLite + Qdrant sync
+- Importance-based cleanup
+- Long-term memory management
+
+**v0.4.0 Release** (Week 17): Full Intelligence Upgrade
+- Production-ready self-learning agent
+- Comprehensive documentation
+- Performance benchmarks
+
+**Success Metric**: Agent demonstrably learns from experience and improves over 1 week of use.
+
+---
+
+**Last Updated**: October 27, 2025  
+**Next Milestone**: Phase 3.1 - Experience Tracking System
+
