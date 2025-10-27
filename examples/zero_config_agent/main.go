@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/taipm/go-llm-agent/pkg/agent"
 	"github.com/taipm/go-llm-agent/pkg/provider/ollama"
@@ -15,7 +16,7 @@ func main() {
 	fmt.Println()
 
 	// Just this! Learning auto-enabled, VectorMemory auto-configured
-	llm := ollama.New("http://localhost:11434", "qwen2.5:7b")
+	llm := ollama.New("http://localhost:11434", "qwen3:1.7b")
 	ag := agent.New(llm)
 
 	fmt.Println("✅ Agent created with just: agent.New(llm)")
@@ -67,6 +68,43 @@ func main() {
 	fmt.Printf("  Experience Store: %v\n", status.Learning.ExperienceStoreReady)
 	fmt.Printf("  Tool Selector: %v\n", status.Learning.ToolSelectorReady)
 	fmt.Println()
+
+	// Get agent's self-assessment of learning progress
+	if status.Learning.Enabled && status.Learning.ExperienceStoreReady {
+		fmt.Println("🧠 Agent Self-Assessment (Learning Progress):")
+		fmt.Println(strings.Repeat("=", 60))
+		
+		report, err := ag.GetLearningReport(ctx)
+		if err == nil && report != nil {
+			fmt.Printf("Total Experiences: %d\n", report.TotalExperiences)
+			fmt.Printf("Learning Stage: %s\n", report.LearningStage)
+			fmt.Printf("Production Ready: %v\n", report.ReadyForProduction)
+			
+			if len(report.ToolPerformance) > 0 {
+				fmt.Println("\nTool Performance:")
+				for toolName, stats := range report.ToolPerformance {
+					fmt.Printf("  • %s: %.1f%% success (%d/%d calls), avg %dms\n",
+						toolName, stats.SuccessRate*100, stats.Successes, stats.TotalCalls, stats.AvgLatency)
+				}
+			}
+			
+			if len(report.Insights) > 0 {
+				fmt.Println("\nAgent Insights:")
+				for _, insight := range report.Insights {
+					fmt.Printf("  ✓ %s\n", insight)
+				}
+			}
+			
+			if len(report.Warnings) > 0 {
+				fmt.Println("\nWarnings:")
+				for _, warning := range report.Warnings {
+					fmt.Printf("  ⚠ %s\n", warning)
+				}
+			}
+		}
+		fmt.Println(strings.Repeat("=", 60))
+		fmt.Println()
+	}
 
 	fmt.Println("✨ That's it! Simple as agent.New(llm)")
 	fmt.Println()
