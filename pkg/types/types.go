@@ -1,6 +1,9 @@
 package types
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Role represents the role of a message in a conversation
 type Role string
@@ -132,4 +135,33 @@ type Memory interface {
 
 	// Size returns the number of messages in memory
 	Size() int
+}
+
+// AdvancedMemory extends Memory with semantic search and advanced features
+type AdvancedMemory interface {
+	Memory // Embed basic interface
+
+	// Semantic search using vector embeddings
+	SearchSemantic(ctx context.Context, query string, limit int) ([]Message, error)
+
+	// Add message with pre-computed embedding
+	AddWithEmbedding(ctx context.Context, message Message, embedding []float32) error
+
+	// Get messages by category
+	GetByCategory(ctx context.Context, category MessageCategory, limit int) ([]Message, error)
+
+	// Get most important messages
+	GetMostImportant(ctx context.Context, limit int) ([]Message, error)
+
+	// Hybrid search combining keyword and semantic search
+	HybridSearch(ctx context.Context, query string, limit int) ([]Message, error)
+
+	// Get memory statistics
+	GetStats(ctx context.Context) (*MemoryStats, error)
+
+	// Archive old/unimportant messages
+	Archive(ctx context.Context, olderThan time.Duration) error
+
+	// Export memory for backup
+	Export(ctx context.Context, path string) error
 }
