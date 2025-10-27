@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/taipm/go-llm-agent/pkg/builtin"
 	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/tool"
 	"github.com/taipm/go-llm-agent/pkg/types"
@@ -36,7 +37,7 @@ func DefaultOptions() *Options {
 	}
 }
 
-// New creates a new agent with default memory (100 messages)
+// New creates a new agent with default memory (100 messages) and all builtin tools
 func New(provider types.LLMProvider, opts ...Option) *Agent {
 	agent := &Agent{
 		provider: provider,
@@ -44,6 +45,12 @@ func New(provider types.LLMProvider, opts ...Option) *Agent {
 		memory:   memory.NewBuffer(100), // Default memory with 100 messages
 		options:  DefaultOptions(),
 		logger:   NewConsoleLogger(), // Default logger
+	}
+
+	// Load all builtin tools by default
+	registry := builtin.GetRegistry()
+	for _, tool := range registry.All() {
+		agent.tools.Register(tool)
 	}
 
 	for _, opt := range opts {
@@ -105,6 +112,14 @@ func DisableLogging() Option {
 	}
 }
 
+// WithoutBuiltinTools disables automatic loading of builtin tools
+func WithoutBuiltinTools() Option {
+	return func(a *Agent) {
+		// Clear the tools registry
+		a.tools = tool.NewRegistry()
+	}
+}
+
 // AddTool registers a tool with the agent
 func (a *Agent) AddTool(t types.Tool) error {
 	return a.tools.Register(t)
@@ -113,6 +128,11 @@ func (a *Agent) AddTool(t types.Tool) error {
 // RemoveTool unregisters a tool
 func (a *Agent) RemoveTool(name string) error {
 	return a.tools.Unregister(name)
+}
+
+// ToolCount returns the number of registered tools
+func (a *Agent) ToolCount() int {
+	return a.tools.Size()
 }
 
 // Chat sends a message and returns the response

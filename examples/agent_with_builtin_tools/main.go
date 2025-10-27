@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/taipm/go-llm-agent/pkg/agent"
-	"github.com/taipm/go-llm-agent/pkg/builtin"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -24,66 +23,11 @@ func main() {
 	}
 	fmt.Printf("✓ Using provider: %s\n", llm)
 
-	// 2. Get all built-in tools
-	registry := builtin.GetRegistry()
-	tools := registry.All()
-	fmt.Printf("✓ Loaded %d built-in tools\n\n", len(tools))
-
-	// Show available tools
-	fmt.Println("Available tools by category:")
-	categories := map[string][]string{
-		"File Operations": {},
-		"Web Operations":  {},
-		"DateTime":        {},
-		"System":          {},
-		"Math":            {},
-		"Database":        {},
-	}
-
-	for _, tool := range tools {
-		category := tool.Category()
-		name := tool.Name()
-		safe := "unsafe"
-		if tool.IsSafe() {
-			safe = "safe"
-		}
-		info := fmt.Sprintf("  - %s (%s)", name, safe)
-
-		switch category {
-		case "file":
-			categories["File Operations"] = append(categories["File Operations"], info)
-		case "web":
-			categories["Web Operations"] = append(categories["Web Operations"], info)
-		case "datetime":
-			categories["DateTime"] = append(categories["DateTime"], info)
-		case "system":
-			categories["System"] = append(categories["System"], info)
-		case "math":
-			categories["Math"] = append(categories["Math"], info)
-		case "database":
-			categories["Database"] = append(categories["Database"], info)
-		}
-	}
-
-	for category, items := range categories {
-		if len(items) > 0 {
-			fmt.Printf("%s:\n", category)
-			for _, item := range items {
-				fmt.Println(item)
-			}
-		}
-	}
-
-	// 3. Create agent with all tools (memory initialized automatically with 100 messages)
+	// 2. Create agent (memory, logging, and all 20 builtin tools loaded automatically!)
 	ag := agent.New(llm)
+	fmt.Printf("✓ Agent created with %d built-in tools\n\n", ag.ToolCount())
 
-	// Register all tools
-	for _, tool := range tools {
-		ag.AddTool(tool)
-	}
-	fmt.Printf("\n✓ Agent created with %d tools\n\n", len(tools))
-
-	// 4. Test different capabilities
+	// 3. Test different capabilities
 	testCases := []struct {
 		name  string
 		query string

@@ -92,7 +92,8 @@ func TestNewAgentWithMemory(t *testing.T) {
 
 func TestAddTool(t *testing.T) {
 	provider := ollama.New(testBaseURL, testModel)
-	ag := New(provider)
+	// Create agent without builtin tools for this test
+	ag := New(provider, WithoutBuiltinTools())
 
 	testTool := &TestTool{}
 	ag.AddTool(testTool)
@@ -136,7 +137,8 @@ func TestChatWithMemory(t *testing.T) {
 
 	provider := ollama.New(testBaseURL, testModel)
 	mem := memory.NewBuffer(100)
-	ag := New(provider, WithMemory(mem))
+	// Use WithoutBuiltinTools for simple memory test to avoid tool calling distraction
+	ag := New(provider, WithMemory(mem), WithoutBuiltinTools())
 	ctx := context.Background()
 
 	// First message

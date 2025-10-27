@@ -10,7 +10,6 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/taipm/go-llm-agent/pkg/agent"
-	"github.com/taipm/go-llm-agent/pkg/builtin"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 )
 
@@ -34,55 +33,12 @@ func main() {
 	fmt.Printf("✓ Model: %s\n", getModelName())
 	fmt.Println()
 
-	// Get all built-in tools from registry
-	registry := builtin.GetRegistry()
-	tools := registry.All()
-	fmt.Printf("✓ Loaded %d built-in tools\n\n", len(tools))
-
-	// Show tools by category
-	categories := map[string][]string{
-		"DateTime": {},
-		"Math":     {},
-		"File":     {},
-		"Web":      {},
-		"System":   {},
-		"Database": {},
-	}
-
-	for _, tool := range tools {
-		category := tool.Category()
-		name := tool.Name()
-		switch category {
-		case "datetime":
-			categories["DateTime"] = append(categories["DateTime"], name)
-		case "math":
-			categories["Math"] = append(categories["Math"], name)
-		case "file":
-			categories["File"] = append(categories["File"], name)
-		case "web":
-			categories["Web"] = append(categories["Web"], name)
-		case "system":
-			categories["System"] = append(categories["System"], name)
-		case "database":
-			categories["Database"] = append(categories["Database"], name)
-		}
-	}
-
-	for category, items := range categories {
-		if len(items) > 0 {
-			fmt.Printf("✓ %s tools (%d): %s\n", category, len(items), strings.Join(items, ", "))
-		}
-	}
-	fmt.Println()
-
-	// Create agent (memory and logging initialized automatically)
+	// Create agent (memory, logging, and 20 builtin tools initialized automatically!)
 	var a *agent.Agent
 	a = agent.New(llm)
 
-	// Register all tools
-	for _, tool := range tools {
-		a.AddTool(tool)
-	}
+	fmt.Printf("✓ Agent created with memory (100 messages) and logging enabled\n")
+	fmt.Printf("✓ Loaded %d built-in tools automatically\n\n", a.ToolCount())
 
 	fmt.Println("╔════════════════════════════════════════════════════════════════╗")
 	fmt.Println("║                    INTERACTIVE CHAT MODE                       ║")
@@ -140,10 +96,6 @@ func main() {
 
 		case "clear":
 			a = agent.New(llm)
-			// Re-register all tools
-			for _, tool := range tools {
-				a.AddTool(tool)
-			}
 			fmt.Println("✓ Conversation history cleared\n")
 			continue
 

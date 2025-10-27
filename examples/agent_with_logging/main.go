@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/taipm/go-llm-agent/pkg/agent"
-	"github.com/taipm/go-llm-agent/pkg/builtin"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -28,24 +27,11 @@ func main() {
 		log.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// 2. Get DateTime and Math tools (needed for age/time calculations)
-	datetimeTools := builtin.GetDateTimeTools()
-	mathTools := builtin.GetMathTools()
-
-	// 3. Create agent (memory and logging initialized automatically)
+	// 2. Create agent (memory, logging, and all 20 builtin tools loaded automatically!)
 	ag := agent.New(llm)
 
-	// Register tools
-	for _, tool := range datetimeTools {
-		ag.AddTool(tool)
-	}
-	for _, tool := range mathTools {
-		ag.AddTool(tool)
-	}
-
 	fmt.Printf("✓ Provider: %s\n", llm)
-	fmt.Printf("✓ Loaded %d datetime tools + %d math tools\n", len(datetimeTools), len(mathTools))
-	fmt.Printf("✓ Tools: datetime_now, datetime_calc, math_calculate, math_stats\n\n")
+	fmt.Printf("✓ Agent created with %d built-in tools (including datetime and math)\n\n", ag.ToolCount())
 
 	// Scenario: User introduces themselves with birthdate
 	// Agent should remember and use tools to calculate age and lifetime
