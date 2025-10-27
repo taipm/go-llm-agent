@@ -42,3 +42,4 @@ examples/simple_agent/simple_agent
 examples/cot_reasoning/cot_reasoning
 examples/react_with_tools/react_with_tools
 examples/reflection_agent/reflection_agent
+examples/agent_status/agent_status

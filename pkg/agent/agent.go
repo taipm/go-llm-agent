@@ -184,6 +184,127 @@ func (a *Agent) ToolCount() int {
 	return a.tools.Count()
 }
 
+// AgentStatus contains comprehensive information about agent state
+type AgentStatus struct {
+	// Configuration
+	Configuration struct {
+		SystemPrompt     string  `json:"system_prompt"`
+		Temperature      float64 `json:"temperature"`
+		MaxTokens        int     `json:"max_tokens"`
+		MaxIterations    int     `json:"max_iterations"`
+		MinConfidence    float64 `json:"min_confidence"`
+		EnableReflection bool    `json:"enable_reflection"`
+	} `json:"configuration"`
+
+	// Reasoning Capabilities
+	Reasoning struct {
+		AutoReasoningEnabled bool `json:"auto_reasoning_enabled"`
+		CoTAvailable         bool `json:"cot_available"`
+		ReActAvailable       bool `json:"react_available"`
+		ReflectionAvailable  bool `json:"reflection_available"`
+	} `json:"reasoning"`
+
+	// Tools
+	Tools struct {
+		TotalCount int      `json:"total_count"`
+		ToolNames  []string `json:"tool_names"`
+	} `json:"tools"`
+
+	// Memory
+	Memory struct {
+		Type            string `json:"type"`
+		MessageCount    int    `json:"message_count,omitempty"`
+		SupportsSearch  bool   `json:"supports_search"`
+		SupportsVectors bool   `json:"supports_vectors"`
+	} `json:"memory"`
+
+	// Provider
+	Provider struct {
+		Type string `json:"type"`
+	} `json:"provider"`
+}
+
+// Status returns comprehensive agent configuration and runtime state
+func (a *Agent) Status() *AgentStatus {
+	status := &AgentStatus{}
+
+	// Configuration
+	status.Configuration.SystemPrompt = a.options.SystemPrompt
+	status.Configuration.Temperature = a.options.Temperature
+	status.Configuration.MaxTokens = a.options.MaxTokens
+	status.Configuration.MaxIterations = a.options.MaxIterations
+	status.Configuration.MinConfidence = a.options.MinConfidence
+	status.Configuration.EnableReflection = a.options.EnableReflection
+
+	// Reasoning capabilities
+	status.Reasoning.AutoReasoningEnabled = a.enableAutoReasoning
+	status.Reasoning.CoTAvailable = (a.cotAgent != nil)
+	status.Reasoning.ReActAvailable = (a.reactAgent != nil)
+	status.Reasoning.ReflectionAvailable = (a.reflector != nil)
+
+	// Tools
+	status.Tools.TotalCount = a.tools.Count()
+	status.Tools.ToolNames = make([]string, 0)
+	for _, tool := range a.tools.All() {
+		status.Tools.ToolNames = append(status.Tools.ToolNames, tool.Name())
+	}
+
+	// Memory
+	status.Memory.Type = a.getMemoryType()
+	if buffMem, ok := a.memory.(*memory.BufferMemory); ok {
+		messages := buffMem.GetAll()
+		status.Memory.MessageCount = len(messages)
+	}
+	
+	// Check if memory supports advanced features
+	if advMem, ok := a.memory.(types.AdvancedMemory); ok {
+		status.Memory.SupportsSearch = true
+		status.Memory.SupportsVectors = true
+		// Try to get stats if available (best effort, ignore errors)
+		if stats, _ := advMem.GetStats(context.Background()); stats != nil {
+			status.Memory.MessageCount = stats.TotalMessages
+		}
+	}
+
+	// Provider type (detect based on type assertion)
+	status.Provider.Type = a.getProviderType()
+
+	return status
+}
+
+// getMemoryType returns a human-readable memory type
+func (a *Agent) getMemoryType() string {
+	switch a.memory.(type) {
+	case *memory.BufferMemory:
+		return "buffer"
+	case *memory.VectorMemory:
+		return "vector"
+	default:
+		if _, ok := a.memory.(types.AdvancedMemory); ok {
+			return "advanced"
+		}
+		return "custom"
+	}
+}
+
+// getProviderType returns a human-readable provider type
+func (a *Agent) getProviderType() string {
+	providerType := fmt.Sprintf("%T", a.provider)
+	
+	// Extract simple name from full package path
+	// e.g., "*ollama.Provider" -> "ollama"
+	parts := strings.Split(providerType, ".")
+	if len(parts) > 1 {
+		name := parts[len(parts)-2] // Get package name
+		// Remove any leading asterisk or path
+		name = strings.TrimPrefix(name, "*")
+		name = strings.TrimPrefix(name, "provider/")
+		return name
+	}
+	
+	return providerType
+}
+
 // Chat sends a message and returns the response
 func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 	// Log user message
