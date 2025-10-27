@@ -432,12 +432,47 @@ func (a *Agent) recordExperience(ctx context.Context, query string, response str
 
 	// Record experience (async, don't block)
 	go func() {
-		if err := a.experienceStore.Record(context.Background(), exp); err != nil {
+		ctx := context.Background()
+		if err := a.experienceStore.Record(ctx, exp); err != nil {
 			a.logger.Debug("Failed to record experience: %v", err)
 		} else {
 			a.logger.Debug("📚 Recorded experience: %s (success=%v)", exp.ID, exp.Success)
+
+			// Log learning progress periodically
+			a.logLearningProgress(ctx, exp)
 		}
 	}()
+}
+
+// logLearningProgress logs agent's learning insights after recording experience
+func (a *Agent) logLearningProgress(ctx context.Context, exp learning.Experience) {
+	// Only log learning insights if we have tool selector
+	if a.toolSelector == nil {
+		return
+	}
+
+	// Get tool stats for this experience's tool and intent
+	if exp.ToolCalled != "" && exp.Intent != "" {
+		stats, err := a.toolSelector.GetToolStats(ctx, exp.ToolCalled, exp.Intent)
+		if err == nil && stats != nil && stats.TotalCalls > 0 {
+			// Log insights at key milestones
+			if stats.TotalCalls == 3 {
+				a.logger.Info("🎓 Learning milestone: Collected %d experiences for %s (%s)",
+					stats.TotalCalls, exp.ToolCalled, exp.Intent)
+				a.logger.Info("   Success rate: %.1f%%, Ready for exploitation!", stats.SuccessRate*100)
+			} else if stats.TotalCalls%10 == 0 {
+				// Log every 10 experiences
+				a.logger.Info("📈 Learning progress: %s (%s) - %d calls, %.1f%% success, avg %dms",
+					exp.ToolCalled, exp.Intent, stats.TotalCalls, stats.SuccessRate*100, stats.AvgLatency)
+			}
+
+			// Warn if performance is degrading
+			if stats.TotalCalls >= 5 && stats.SuccessRate < 0.5 {
+				a.logger.Warn("⚠️  Low success rate for %s (%s): %.1f%% - may need adjustment",
+					exp.ToolCalled, exp.Intent, stats.SuccessRate*100)
+			}
+		}
+	}
 }
 
 // getMemoryType returns a human-readable memory type
@@ -1273,4 +1308,114 @@ func (a *Agent) GetToolStats(ctx context.Context, toolName string, intent string
 	}
 
 	return a.toolSelector.GetToolStats(ctx, toolName, intent)
+}
+
+// LearningReport contains agent's self-assessment of its learning progress
+type LearningReport struct {
+	TotalExperiences   int                            `json:"total_experiences"`
+	ToolPerformance    map[string]*learning.ToolStats `json:"tool_performance"`
+	LearningStage      string                         `json:"learning_stage"` // "exploring", "learning", "expert"
+	ReadyForProduction bool                           `json:"ready_for_production"`
+	Insights           []string                       `json:"insights"`
+	Warnings           []string                       `json:"warnings"`
+}
+
+// GetLearningReport returns agent's self-assessment of its learning progress
+func (a *Agent) GetLearningReport(ctx context.Context) (*LearningReport, error) {
+	if !a.options.EnableLearning || a.experienceStore == nil {
+		return nil, fmt.Errorf("learning is not enabled")
+	}
+
+	report := &LearningReport{
+		ToolPerformance: make(map[string]*learning.ToolStats),
+		Insights:        make([]string, 0),
+		Warnings:        make([]string, 0),
+	}
+
+	// Get experiences to analyze
+	experiences, err := a.experienceStore.Query(ctx, learning.ExperienceFilters{
+		Query: a.conversationID,
+		Limit: 1000,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query experiences: %w", err)
+	}
+
+	report.TotalExperiences = len(experiences)
+
+	// Analyze tool performance
+	toolCounts := make(map[string]int)
+	successCounts := make(map[string]int)
+
+	for _, exp := range experiences {
+		if exp.ToolCalled != "" {
+			toolCounts[exp.ToolCalled]++
+			if exp.Success {
+				successCounts[exp.ToolCalled]++
+			}
+		}
+	}
+
+	// Get detailed stats for each tool
+	for toolName := range toolCounts {
+		// Try common intents
+		for _, intent := range []string{"calculation", "search", "file", "coding", "general"} {
+			stats, err := a.GetToolStats(ctx, toolName, intent)
+			if err == nil && stats != nil && stats.TotalCalls > 0 {
+				report.ToolPerformance[toolName+"_"+intent] = stats
+			}
+		}
+	}
+
+	// Determine learning stage
+	if report.TotalExperiences < 5 {
+		report.LearningStage = "exploring"
+		report.Insights = append(report.Insights,
+			fmt.Sprintf("Early exploration phase (%d experiences collected)", report.TotalExperiences))
+	} else if report.TotalExperiences < 20 {
+		report.LearningStage = "learning"
+		report.Insights = append(report.Insights,
+			fmt.Sprintf("Active learning phase (%d experiences)", report.TotalExperiences))
+	} else {
+		report.LearningStage = "expert"
+		report.Insights = append(report.Insights,
+			fmt.Sprintf("Expert mode (%d experiences accumulated)", report.TotalExperiences))
+	}
+
+	// Analyze tool performance and generate insights
+	totalSuccess := 0
+	totalCalls := 0
+	for toolName, count := range toolCounts {
+		totalCalls += count
+		totalSuccess += successCounts[toolName]
+
+		successRate := float64(successCounts[toolName]) / float64(count) * 100
+
+		if count >= 5 {
+			if successRate >= 90 {
+				report.Insights = append(report.Insights,
+					fmt.Sprintf("Tool '%s': Excellent performance (%.1f%% success over %d calls)",
+						toolName, successRate, count))
+			} else if successRate < 50 {
+				report.Warnings = append(report.Warnings,
+					fmt.Sprintf("Tool '%s': Low success rate (%.1f%% over %d calls) - needs attention",
+						toolName, successRate, count))
+			}
+		}
+	}
+
+	// Overall success rate
+	if totalCalls > 0 {
+		overallSuccess := float64(totalSuccess) / float64(totalCalls) * 100
+		if overallSuccess >= 85 && report.TotalExperiences >= 10 {
+			report.ReadyForProduction = true
+			report.Insights = append(report.Insights,
+				fmt.Sprintf("Overall success rate: %.1f%% - Ready for production use", overallSuccess))
+		} else {
+			report.Insights = append(report.Insights,
+				fmt.Sprintf("Overall success rate: %.1f%% - Continue learning", overallSuccess))
+		}
+	}
+
+	return report, nil
 }
