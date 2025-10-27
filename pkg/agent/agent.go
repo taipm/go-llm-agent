@@ -105,8 +105,8 @@ func tryCreateVectorMemory(log logger.Logger) types.Memory {
 
 	// Try to create VectorMemory with default Qdrant settings
 	vectorMem, err := memory.NewVectorMemory(ctx, memory.VectorMemoryConfig{
-		QdrantURL:      "localhost:6334", // Default Qdrant address
-		CollectionName: "agent_memory",   // Default collection name
+		QdrantURL:      "localhost:6334",                 // Default Qdrant address
+		CollectionName: "agent_memory",                   // Default collection name
 		Embedder:       memory.NewOllamaEmbedder("", ""), // Default Ollama embedder
 		CacheSize:      100,
 	})

@@ -29,12 +29,12 @@ func main() {
 	// Example 1: Simple calculation
 	fmt.Println("📝 Example 1: Calculate 123 * 456")
 	ctx := context.Background()
-	
+
 	response, err := ag.Chat(ctx, "Calculate 123 * 456")
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	
+
 	fmt.Printf("Response: %s\n", response)
 	fmt.Println()
 
@@ -44,7 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	
+
 	fmt.Printf("Response: %s\n", response)
 	fmt.Println()
 
@@ -54,7 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	
+
 	fmt.Printf("Response: %s\n", response)
 	fmt.Println()
 
