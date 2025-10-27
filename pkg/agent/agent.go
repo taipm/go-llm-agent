@@ -1015,18 +1015,50 @@ func (a *Agent) analyzeQuery(query string) string {
 		}
 	}
 
-	// Priority 2: Check for Chain-of-Thought indicators
+	// Priority 2: Math calculations should use ReAct (to call math_calculate tool)
+	if isCalculationQuery(queryLower) {
+		return "react" // Use ReAct to leverage math_calculate tool
+	}
+
+	// Priority 3: Check for Chain-of-Thought indicators (pure reasoning)
 	if needsCoT(queryLower) {
 		return "cot"
 	}
 
-	// Priority 3: Check for ReAct/tool usage indicators
+	// Priority 4: Check for other tool usage indicators
 	if a.tools.Count() > 0 && needsTools(queryLower) {
 		return "react"
 	}
 
 	// Default to simple chat
 	return "simple"
+}
+
+// isCalculationQuery detects if query is a calculation that needs math_calculate tool
+func isCalculationQuery(query string) bool {
+	// Direct calculation keywords
+	calcKeywords := []string{
+		"calculate", "compute", "solve",
+	}
+	for _, keyword := range calcKeywords {
+		if strings.Contains(query, keyword) {
+			return true
+		}
+	}
+
+	// Math expression pattern: "what is X + Y", "123 * 456", etc.
+	mathExprPattern := regexp.MustCompile(`\d+\s*[\+\-\*\/\^]\s*\d+`)
+	if mathExprPattern.MatchString(query) {
+		return true
+	}
+
+	// "what is" followed by numbers
+	whatIsNumberPattern := regexp.MustCompile(`(?i)what\s+is\s+\d+`)
+	if whatIsNumberPattern.MatchString(query) {
+		return true
+	}
+
+	return false
 }
 
 // detectIntent identifies the user's intent from the query
@@ -1069,38 +1101,26 @@ func (a *Agent) detectIntent(query string) string {
 	return "conversation"
 }
 
-// needsCoT detects if query requires step-by-step reasoning
+// needsCoT detects if query requires step-by-step pure reasoning (no tools)
 func needsCoT(query string) bool {
-	// Mathematical problem indicators
-	mathIndicators := []string{
-		"calculate", "compute", "solve", "what is",
-		"how many", "how much", "if.*then",
-	}
-
-	// Multi-step reasoning indicators
+	// CoT is for pure reasoning tasks like:
+	// - Logic puzzles
+	// - Explanations
+	// - Derivations
+	// - Proofs
+	
+	// Multi-step reasoning indicators (non-calculation)
 	reasoningIndicators := []string{
-		"step by step", "explain how", "why",
-		"prove", "show that", "derive",
+		"step by step", "explain how", "explain why",
+		"why", "prove", "show that", "derive",
+		"reason", "logic", "deduce",
 	}
 
 	// Check indicators
-	for _, indicator := range mathIndicators {
-		if strings.Contains(query, indicator) {
-			return true
-		}
-	}
-
 	for _, indicator := range reasoningIndicators {
 		if strings.Contains(query, indicator) {
 			return true
 		}
-	}
-
-	// Multiple numbers suggest calculation
-	numberPattern := regexp.MustCompile(`\d+(\.\d+)?`)
-	numbers := numberPattern.FindAllString(query, -1)
-	if len(numbers) >= 2 {
-		return true
 	}
 
 	return false
