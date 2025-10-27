@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/taipm/go-llm-agent/pkg/agent"
@@ -14,7 +15,7 @@ import (
 const (
 	qdrantURL      = "localhost:6334"
 	ollamaURL      = "http://localhost:11434"
-	modelName      = "qwen2.5:7b"
+	modelName      = "qwen3:1.7b"
 	embedModel     = "nomic-embed-text"
 	collectionName = "learning_demo"
 )
@@ -45,6 +46,13 @@ func main() {
 
 	initialStats := runQueries(ctx, ag, queries, "Initial")
 
+	// Show phase summary
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Printf("Phase 1 Summary: %d/%d success, avg latency: %v\n", 
+		initialStats.SuccessCount, initialStats.TotalQueries, initialStats.AverageLatency)
+	showDetailedToolStats(ctx, ag, "After Phase 1")
+	fmt.Println(strings.Repeat("=", 60))
+
 	// Phase 2: More queries (agent starts exploiting learned knowledge)
 	fmt.Println()
 	fmt.Println("Phase 2: Learning in Action (Next 10 queries)")
@@ -64,6 +72,13 @@ func main() {
 
 	learnedStats := runQueries(ctx, ag, moreQueries, "Learned")
 
+	// Show phase summary
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Printf("Phase 2 Summary: %d/%d success, avg latency: %v\n", 
+		learnedStats.SuccessCount, learnedStats.TotalQueries, learnedStats.AverageLatency)
+	showDetailedToolStats(ctx, ag, "After Phase 2")
+	fmt.Println(strings.Repeat("=", 60))
+
 	// Phase 3: Final queries (high exploitation, agent is confident)
 	fmt.Println()
 	fmt.Println("Phase 3: Expert Mode (Final 5 queries)")
@@ -77,6 +92,13 @@ func main() {
 	}
 
 	expertStats := runQueries(ctx, ag, finalQueries, "Expert")
+
+	// Show phase summary
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Printf("Phase 3 Summary: %d/%d success, avg latency: %v\n", 
+		expertStats.SuccessCount, expertStats.TotalQueries, expertStats.AverageLatency)
+	showDetailedToolStats(ctx, ag, "After Phase 3 (Final)")
+	fmt.Println(strings.Repeat("=", 60))
 
 	// Show improvement summary
 	fmt.Println()
@@ -142,7 +164,20 @@ func runQueries(ctx context.Context, ag *agent.Agent, queries []string, phase st
 	stats := QueryStats{TotalQueries: len(queries)}
 
 	for i, query := range queries {
-		fmt.Printf("[%s %d/%d] Query: %s\n", phase, i+1, len(queries), query)
+		fmt.Printf("\n[%s %d/%d] Query: %s\n", phase, i+1, len(queries), query)
+
+		// Get tool recommendation BEFORE execution to see learning in action
+		recommendation, _ := ag.GetToolRecommendation(ctx, query, "calculation")
+		if recommendation != nil {
+			fmt.Printf("  🎯 Recommended Tool: %s (confidence: %.1f%%, strategy: %s)\n", 
+				recommendation.ToolName, recommendation.Confidence*100, recommendation.DecisionStrategy)
+			if recommendation.IsExploration {
+				fmt.Printf("  🔍 Mode: EXPLORATION - trying different tools\n")
+			} else {
+				fmt.Printf("  💡 Mode: EXPLOITATION - using learned best tool (%.1f%% success rate)\n", 
+					recommendation.SuccessRate*100)
+			}
+		}
 
 		start := time.Now()
 		response, err := ag.Chat(ctx, query)
@@ -160,8 +195,12 @@ func runQueries(ctx context.Context, ag *agent.Agent, queries []string, phase st
 			if len(shortResp) > 100 {
 				shortResp = shortResp[:100] + "..."
 			}
-			fmt.Printf("  ✅ Success: %s (latency: %v)\n", shortResp, latency)
+			fmt.Printf("  ✅ Success: %s\n", shortResp)
+			fmt.Printf("  ⏱️  Latency: %v\n", latency)
 		}
+
+		// Show learning progress after each query
+		showLearningProgress(ctx, ag, i+1)
 
 		// Small delay to avoid overwhelming the system
 		time.Sleep(500 * time.Millisecond)
@@ -174,24 +213,112 @@ func runQueries(ctx context.Context, ag *agent.Agent, queries []string, phase st
 	return stats
 }
 
-func showProgressSummary(initial, learned, expert QueryStats) {
-	fmt.Printf("Phase 1 (Initial):  %d queries, %d success, avg latency: %v\n",
-		initial.TotalQueries, initial.SuccessCount, initial.AverageLatency)
-	fmt.Printf("Phase 2 (Learned):  %d queries, %d success, avg latency: %v\n",
-		learned.TotalQueries, learned.SuccessCount, learned.AverageLatency)
-	fmt.Printf("Phase 3 (Expert):   %d queries, %d success, avg latency: %v\n",
-		expert.TotalQueries, expert.SuccessCount, expert.AverageLatency)
-
-	// Calculate improvements
-	if initial.AverageLatency > 0 {
-		latencyImprovement := float64(initial.AverageLatency-expert.AverageLatency) / float64(initial.AverageLatency) * 100
-		fmt.Printf("\n📈 Latency improvement: %.1f%% faster in Expert mode\n", latencyImprovement)
+func showLearningProgress(ctx context.Context, ag *agent.Agent, queryCount int) {
+	// Get current learning status
+	status := ag.Status()
+	
+	if !status.Learning.ExperienceStoreReady {
+		return
 	}
 
+	// Get calculator tool stats
+	calcStats, err := ag.GetToolStats(ctx, "calculator", "calculation")
+	if err == nil && calcStats != nil && calcStats.TotalCalls > 0 {
+		fmt.Printf("  📊 Learning Status: %d experiences recorded\n", queryCount)
+		fmt.Printf("     Calculator: %d calls, %.1f%% success, avg %dms\n",
+			calcStats.TotalCalls, calcStats.SuccessRate*100, calcStats.AvgLatency)
+	}
+}
+
+func showDetailedToolStats(ctx context.Context, ag *agent.Agent, title string) {
+	fmt.Printf("\n📈 %s - Learning Metrics:\n", title)
+	fmt.Println(strings.Repeat("-", 60))
+	
+	// Get calculator stats
+	calcStats, err := ag.GetToolStats(ctx, "calculator", "calculation")
+	if err == nil && calcStats != nil {
+		fmt.Printf("Calculator Performance:\n")
+		fmt.Printf("  Total Calls:     %d\n", calcStats.TotalCalls)
+		fmt.Printf("  Successes:       %d\n", calcStats.Successes)
+		fmt.Printf("  Failures:        %d\n", calcStats.Failures)
+		fmt.Printf("  Success Rate:    %.1f%%\n", calcStats.SuccessRate*100)
+		fmt.Printf("  Avg Latency:     %dms\n", calcStats.AvgLatency)
+		
+		// Show learning trend
+		if calcStats.TotalCalls >= 3 {
+			fmt.Printf("  Learning Status: ✅ Enough data for exploitation\n")
+		} else {
+			fmt.Printf("  Learning Status: 🔍 Still exploring (need %d more samples)\n", 3-calcStats.TotalCalls)
+		}
+	}
+	
+	// Get tool recommendation to show decision making
+	recommendation, err := ag.GetToolRecommendation(ctx, "calculate 100 * 200", "calculation")
+	if err == nil && recommendation != nil {
+		fmt.Printf("\nDecision Strategy:\n")
+		fmt.Printf("  Strategy:        %s\n", recommendation.DecisionStrategy)
+		fmt.Printf("  Confidence:      %.1f%%\n", recommendation.Confidence*100)
+		if recommendation.IsExploration {
+			fmt.Printf("  Mode:            🔍 Exploration (discovering patterns)\n")
+		} else {
+			fmt.Printf("  Mode:            💡 Exploitation (using learned knowledge)\n")
+		}
+		fmt.Printf("  Sample Size:     %d experiences\n", recommendation.SampleSize)
+	}
+	
+	fmt.Println(strings.Repeat("-", 60))
+}
+
+func showProgressSummary(initial, learned, expert QueryStats) {
+	fmt.Println("\n📊 Overall Performance by Phase:")
+	fmt.Println(strings.Repeat("-", 70))
+	
+	fmt.Printf("%-15s | Queries | Success | Avg Latency | Success Rate\n", "Phase")
+	fmt.Println(strings.Repeat("-", 70))
+	
+	initialRate := float64(initial.SuccessCount) / float64(initial.TotalQueries) * 100
+	learnedRate := float64(learned.SuccessCount) / float64(learned.TotalQueries) * 100
+	expertRate := float64(expert.SuccessCount) / float64(expert.TotalQueries) * 100
+	
+	fmt.Printf("%-15s | %7d | %7d | %11v | %10.1f%%\n", 
+		"Initial", initial.TotalQueries, initial.SuccessCount, initial.AverageLatency, initialRate)
+	fmt.Printf("%-15s | %7d | %7d | %11v | %10.1f%%\n", 
+		"Learned", learned.TotalQueries, learned.SuccessCount, learned.AverageLatency, learnedRate)
+	fmt.Printf("%-15s | %7d | %7d | %11v | %10.1f%%\n", 
+		"Expert", expert.TotalQueries, expert.SuccessCount, expert.AverageLatency, expertRate)
+	
+	fmt.Println(strings.Repeat("-", 70))
+
+	// Calculate improvements
 	totalSuccess := initial.SuccessCount + learned.SuccessCount + expert.SuccessCount
 	totalQueries := initial.TotalQueries + learned.TotalQueries + expert.TotalQueries
-	successRate := float64(totalSuccess) / float64(totalQueries) * 100
-	fmt.Printf("📈 Overall success rate: %.1f%% (%d/%d)\n", successRate, totalSuccess, totalQueries)
+	overallRate := float64(totalSuccess) / float64(totalQueries) * 100
+	
+	fmt.Printf("\n🎯 Overall Statistics:\n")
+	fmt.Printf("   Total Queries:    %d\n", totalQueries)
+	fmt.Printf("   Total Successes:  %d\n", totalSuccess)
+	fmt.Printf("   Success Rate:     %.1f%%\n", overallRate)
+	
+	if initial.AverageLatency > 0 && expert.AverageLatency > 0 {
+		latencyImprovement := float64(initial.AverageLatency-expert.AverageLatency) / float64(initial.AverageLatency) * 100
+		fmt.Printf("\n📈 Learning Improvements:\n")
+		fmt.Printf("   Latency Reduction:  %.1f%% faster (Initial: %v → Expert: %v)\n", 
+			latencyImprovement, initial.AverageLatency, expert.AverageLatency)
+		
+		if latencyImprovement > 0 {
+			fmt.Printf("   ✅ Agent learned to respond %.1f%% faster!\n", latencyImprovement)
+		}
+	}
+	
+	// Success rate trend
+	if expertRate > initialRate {
+		improvement := expertRate - initialRate
+		fmt.Printf("   Success Rate Gain:  +%.1f%% (Initial: %.1f%% → Expert: %.1f%%)\n", 
+			improvement, initialRate, expertRate)
+		fmt.Printf("   ✅ Agent improved success rate by %.1f%%!\n", improvement)
+	} else if expertRate == initialRate && expertRate >= 95.0 {
+		fmt.Printf("   ✅ Maintained high success rate: %.1f%%\n", expertRate)
+	}
 }
 
 func showToolStats(ctx context.Context, ag *agent.Agent) {
