@@ -1,42 +1,104 @@
-# Quick Start Guide
+# 🚀 Quick Start Guide
 
-This guide will help you get started with go-llm-agent in 5 minutes.
+Get started with **go-llm-agent** in 5 minutes! This guide covers multi-provider setup and basic usage.
+
+## 📋 Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Provider Setup](#provider-setup)
+- [Your First Chat](#your-first-chat)
+- [Streaming Responses](#streaming-responses)
+- [Tool Calling](#tool-calling)
+- [Next Steps](#next-steps)
 
 ## Prerequisites
 
-1. **Install Go 1.21+**
-   ```bash
-   # Check version
-   go version
-   ```
+**Required:**
+- Go 1.25 or higher
 
-2. **Install Ollama**
-   ```bash
-   # macOS
-   curl -fsSL https://ollama.ai/install.sh | sh
-   
-   # Or download from https://ollama.ai
-   ```
+**Choose ONE provider** (or use all three):
 
-3. **Pull a model**
-   ```bash
-   ollama pull llama3.2
-   
-   # Verify Ollama is running
-   curl http://localhost:11434
-   ```
+### Option 1: Ollama (Recommended for Beginners)
 
-## Installation
+✅ **Best for:** Local development, learning, privacy  
+✅ **Cost:** 100% Free  
+✅ **Setup time:** 5 minutes
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull qwen3:1.7b
+
+# Verify it's running
+curl http://localhost:11434
+# Should return: Ollama is running
+```
+
+### Option 2: OpenAI
+
+✅ **Best for:** Production, best quality  
+✅ **Cost:** Pay-per-use ($0.15/1M tokens for gpt-4o-mini)  
+✅ **Setup time:** 2 minutes
+
+1. Get API key from [platform.openai.com](https://platform.openai.com/api-keys)
+2. Set environment variable:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+### Option 3: Gemini
+
+✅ **Best for:** Large context, free tier  
+✅ **Cost:** Free tier available  
+✅ **Setup time:** 2 minutes
+
+1. Get API key from [ai.google.dev](https://aistudio.google.com/app/apikey)
+2. Set environment variable:
+
+```bash
+export GEMINI_API_KEY="..."
+```
+
+## 📦 Installation
 
 ```bash
 go get github.com/taipm/go-llm-agent
 ```
 
-## Your First Agent
+## 🎯 Provider Setup
 
-### 1. Simple Chat
+### Create `.env` File (Recommended)
 
-Create `main.go`:
+Create a `.env` file in your project root:
+
+```bash
+# Choose your provider (ollama, openai, or gemini)
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen3:1.7b
+
+# Ollama configuration (if using Ollama)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# OpenAI configuration (if using OpenAI)
+# OPENAI_API_KEY=sk-...
+
+# Gemini configuration (if using Gemini)
+# GEMINI_API_KEY=...
+```
+
+### Install godotenv (Optional but Recommended)
+
+```bash
+go get github.com/joho/godotenv
+```
+
+## 🤖 Your First Chat
+
+### Step 1: Create `main.go`
 
 ```go
 package main
@@ -46,35 +108,64 @@ import (
     "fmt"
     "log"
     
-    "github.com/taipm/go-llm-agent/pkg/agent"
-    "github.com/taipm/go-llm-agent/pkg/provider/ollama"
+    "github.com/taipm/go-llm-agent/pkg/provider"
+    "github.com/taipm/go-llm-agent/pkg/types"
+    _ "github.com/joho/godotenv/autoload" // Load .env file
 )
 
 func main() {
-    // Create provider
-    provider := ollama.New("http://localhost:11434", "llama3.2")
-    
-    // Create agent
-    ag := agent.New(provider)
-    
-    // Chat!
-    response, err := ag.Chat(context.Background(), "Hello!")
+    // Auto-detect provider from environment
+    llm, err := provider.FromEnv()
     if err != nil {
         log.Fatal(err)
     }
     
-    fmt.Println(response)
+    // Create conversation
+    ctx := context.Background()
+    messages := []types.Message{
+        {Role: types.RoleUser, Content: "What is the capital of France?"},
+    }
+    
+    // Get response
+    response, err := llm.Chat(ctx, messages, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Println(response.Content)
+    // Output: The capital of France is Paris.
 }
 ```
 
-Run it:
+### Step 2: Run It
+
 ```bash
 go run main.go
 ```
 
-### 2. Agent with Tools
+**That's it!** 🎉 You just built your first AI chat application.
 
-Add a calculator tool:
+### Switch Providers (Zero Code Changes!)
+
+Just update your `.env` file:
+
+```bash
+# Switch to OpenAI
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+OPENAI_API_KEY=sk-...
+
+# Switch to Gemini  
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.5-flash
+GEMINI_API_KEY=...
+```
+
+Run the **exact same code** - it works with all providers!
+
+## 📡 Streaming Responses
+
+Get real-time output as the model generates text:
 
 ```go
 package main
@@ -83,60 +174,56 @@ import (
     "context"
     "fmt"
     "log"
-    "math"
     
-    "github.com/taipm/go-llm-agent/pkg/agent"
-    "github.com/taipm/go-llm-agent/pkg/provider/ollama"
+    "github.com/taipm/go-llm-agent/pkg/provider"
     "github.com/taipm/go-llm-agent/pkg/types"
+    _ "github.com/joho/godotenv/autoload"
 )
 
-// Simple calculator tool
-type CalcTool struct{}
-
-func (c *CalcTool) Name() string {
-    return "calculator"
-}
-
-func (c *CalcTool) Description() string {
-    return "Calculate square root"
-}
-
-func (c *CalcTool) Parameters() *types.JSONSchema {
-    return &types.JSONSchema{
-        Type: "object",
-        Properties: map[string]*types.JSONSchema{
-            "number": {
-                Type: "number",
-                Description: "Number to calculate",
-            },
-        },
-        Required: []string{"number"},
-    }
-}
-
-func (c *CalcTool) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
-    num := params["number"].(float64)
-    return math.Sqrt(num), nil
-}
-
 func main() {
-    provider := ollama.New("http://localhost:11434", "llama3.2")
-    ag := agent.New(provider)
-    
-    // Add tool
-    ag.AddTool(&CalcTool{})
-    
-    // Agent will use the tool when needed
-    response, err := ag.Chat(context.Background(), "What is the square root of 144?")
+    llm, err := provider.FromEnv()
     if err != nil {
         log.Fatal(err)
     }
     
-    fmt.Println(response)
+    ctx := context.Background()
+    messages := []types.Message{
+        {Role: types.RoleUser, Content: "Count from 1 to 10"},
+    }
+    
+    // Stream handler
+    handler := func(chunk types.StreamChunk) error {
+        // Print each token as it arrives
+        fmt.Print(chunk.Content)
+        
+        if chunk.Done {
+            fmt.Println("\n✓ Complete")
+        }
+        
+        return nil
+    }
+    
+    // Stream the response
+    err = llm.Stream(ctx, messages, nil, handler)
+    if err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
-### 3. Conversation with Memory
+**Output:**
+```text
+1
+2
+3
+...
+10
+✓ Complete
+```
+
+## 🔧 Tool Calling
+
+Let your AI agent use external functions:
 
 ```go
 package main
@@ -145,62 +232,209 @@ import (
     "context"
     "fmt"
     "log"
+    "time"
     
-    "github.com/taipm/go-llm-agent/pkg/agent"
-    "github.com/taipm/go-llm-agent/pkg/memory"
-    "github.com/taipm/go-llm-agent/pkg/provider/ollama"
+    "github.com/taipm/go-llm-agent/pkg/provider"
+    "github.com/taipm/go-llm-agent/pkg/types"
+    _ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
-    provider := ollama.New("http://localhost:11434", "llama3.2")
-    mem := memory.NewBuffer(50)
+    llm, err := provider.FromEnv()
+    if err != nil {
+        log.Fatal(err)
+    }
     
-    ag := agent.New(provider, agent.WithMemory(mem))
+    // Define a weather tool
+    tools := []types.ToolDefinition{
+        {
+            Type: "function",
+            Function: types.FunctionDefinition{
+                Name:        "get_weather",
+                Description: "Get current weather for a location",
+                Parameters: &types.JSONSchema{
+                    Type: "object",
+                    Properties: map[string]*types.JSONSchema{
+                        "location": {
+                            Type:        "string",
+                            Description: "City name (e.g., Tokyo, Paris)",
+                        },
+                        "unit": {
+                            Type:        "string",
+                            Description: "Temperature unit",
+                            Enum:        []interface{}{"celsius", "fahrenheit"},
+                        },
+                    },
+                    Required: []string{"location"},
+                },
+            },
+        },
+    }
     
     ctx := context.Background()
+    messages := []types.Message{
+        {Role: types.RoleUser, Content: "What's the weather in Tokyo?"},
+    }
     
-    // First message
-    resp1, _ := ag.Chat(ctx, "My name is Alice")
-    fmt.Println(resp1)
+    // Chat with tools
+    options := &types.ChatOptions{
+        Tools: tools,
+    }
     
-    // Agent remembers!
-    resp2, _ := ag.Chat(ctx, "What's my name?")
-    fmt.Println(resp2)
+    response, err := llm.Chat(ctx, messages, options)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Check if the model wants to call a tool
+    if len(response.ToolCalls) > 0 {
+        for _, tc := range response.ToolCalls {
+            fmt.Printf("Tool: %s\n", tc.Function.Name)
+            fmt.Printf("Arguments: %v\n", tc.Function.Arguments)
+            
+            // Execute the tool (your implementation)
+            result := executeWeatherTool(tc.Function.Arguments)
+            
+            // Return result to model
+            messages = append(messages, types.Message{
+                Role:      types.RoleAssistant,
+                ToolCalls: response.ToolCalls,
+            })
+            messages = append(messages, types.Message{
+                Role:    types.RoleTool,
+                Content: result,
+                ToolID:  tc.ID,
+            })
+            
+            // Get final response
+            finalResponse, _ := llm.Chat(ctx, messages, nil)
+            fmt.Println(finalResponse.Content)
+        }
+    } else {
+        fmt.Println(response.Content)
+    }
+}
+
+func executeWeatherTool(args map[string]interface{}) string {
+    location := args["location"].(string)
+    // Mock implementation
+    return fmt.Sprintf(`{"location": "%s", "temperature": 22, "condition": "Sunny", "timestamp": "%s"}`, 
+        location, time.Now().Format(time.RFC3339))
 }
 ```
 
-## Next Steps
+**Note:** Tool calling works best with OpenAI and Gemini. Some Ollama models support it (like qwen3:1.7b).
 
-1. **Explore Examples**: Check `examples/` directory
-2. **Read Documentation**: See `SPEC.md` for details
-3. **Build Custom Tools**: Create tools for your use case
-4. **Contribute**: See `CONTRIBUTING.md`
+## 📚 Next Steps
 
-## Common Issues
+### Explore Examples
 
-### Ollama not running
+Check out complete working examples:
+
 ```bash
-# Start Ollama
+# Multi-provider example (recommended)
+cd examples/multi_provider
+go run .
+
+# Provider-specific examples
+cd examples/openai_chat && go run .
+cd examples/gemini_chat && go run .
+cd examples/simple_chat && go run .
+```
+
+### Learn More
+
+- [📋 SPEC.md](SPEC.md) - Technical specification
+- [🔀 PROVIDER_COMPARISON.md](PROVIDER_COMPARISON.md) - Detailed provider comparison
+- [📖 README.md](README.md) - Full documentation
+- [📝 TODO.md](TODO.md) - Development roadmap
+
+### Advanced Topics
+
+1. **Multi-turn Conversations**
+   - Build conversation history
+   - Maintain context across messages
+
+2. **Custom Tools**
+   - Implement your own tool interfaces
+   - Connect to databases, APIs, files
+
+3. **Production Deployment**
+   - Error handling best practices
+   - Rate limiting and retry logic
+   - Cost monitoring (for cloud providers)
+
+4. **Performance Optimization**
+   - Batch requests
+   - Caching strategies
+   - Model selection
+
+## 🆘 Troubleshooting
+
+### Ollama Connection Error
+
+```bash
+# Check if Ollama is running
+curl http://localhost:11434
+
+# If not, start it
 ollama serve
+
+# Pull model if not exists
+ollama pull qwen3:1.7b
 ```
 
-### Model not found
+### OpenAI API Key Error
+
 ```bash
-# List available models
-ollama list
+# Verify API key is set
+echo $OPENAI_API_KEY
 
-# Pull a model
-ollama pull llama3.2
+# Test with curl
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
 ```
 
-### Connection refused
-Check Ollama is running on `http://localhost:11434`
+### Gemini API Key Error
 
-## Resources
+```bash
+# Verify API key is set
+echo $GEMINI_API_KEY
 
-- [Examples](./examples)
-- [API Documentation](https://pkg.go.dev/github.com/taipm/go-llm-agent)
-- [Roadmap](./ROADMAP.md)
-- [Spec](./SPEC.md)
+# Make sure API is enabled in Google Cloud Console
+```
 
-Happy coding! 🚀
+### Provider Not Detected
+
+```bash
+# Check .env file exists and has correct format
+cat .env
+
+# Make sure LLM_PROVIDER is set
+# Valid values: ollama, openai, gemini
+```
+
+## 💡 Tips
+
+1. **Start with Ollama** - It's free and runs locally, perfect for learning
+2. **Use `.env` files** - Makes switching providers effortless  
+3. **Test with all providers** - Ensure your app works everywhere
+4. **Monitor costs** - OpenAI and Gemini charge per token
+5. **Check model availability** - Not all models support all features (especially tool calling)
+
+## 🎯 Quick Provider Comparison
+
+| Feature | Ollama | OpenAI | Gemini |
+|---------|--------|--------|--------|
+| **Cost** | Free | Paid | Free tier |
+| **Speed** | Fast (local) | Fast | Very fast |
+| **Quality** | Good | Excellent | Excellent |
+| **Privacy** | 100% local | Cloud | Cloud |
+| **Tool calling** | Some models | All models | All models |
+| **Context size** | Varies | 128K+ | 1M+ |
+
+See [PROVIDER_COMPARISON.md](PROVIDER_COMPARISON.md) for detailed comparison.
+
+---
+
+**Ready to build?** Start with the simplest example above and gradually add features! 🚀
