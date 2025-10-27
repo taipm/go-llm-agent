@@ -14,6 +14,7 @@ type Agent struct {
 	tools    *tool.Registry
 	memory   types.Memory
 	options  *Options
+	logger   Logger
 }
 
 // Options contains configuration for the agent
@@ -40,6 +41,7 @@ func New(provider types.LLMProvider, opts ...Option) *Agent {
 		provider: provider,
 		tools:    tool.NewRegistry(),
 		options:  DefaultOptions(),
+		logger:   NewConsoleLogger(), // Default logger
 	}
 
 	for _, opt := range opts {
@@ -80,6 +82,27 @@ func WithMaxTokens(max int) Option {
 	}
 }
 
+// WithLogger sets a custom logger
+func WithLogger(logger Logger) Option {
+	return func(a *Agent) {
+		a.logger = logger
+	}
+}
+
+// WithLogLevel sets the log level
+func WithLogLevel(level LogLevel) Option {
+	return func(a *Agent) {
+		a.logger.SetLevel(level)
+	}
+}
+
+// DisableLogging disables all logging
+func DisableLogging() Option {
+	return func(a *Agent) {
+		a.logger = &NoopLogger{}
+	}
+}
+
 // AddTool registers a tool with the agent
 func (a *Agent) AddTool(t types.Tool) error {
 	return a.tools.Register(t)
@@ -92,6 +115,9 @@ func (a *Agent) RemoveTool(name string) error {
 
 // Chat sends a message and returns the response
 func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
+	// Log user message
+	LogUserMessage(a.logger, message)
+
 	// Add user message to memory if available
 	userMsg := types.Message{
 		Role:    types.RoleUser,
@@ -102,6 +128,7 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 		if err := a.memory.Add(userMsg); err != nil {
 			return "", fmt.Errorf("failed to add message to memory: %w", err)
 		}
+		LogMemory(a.logger, "saved", 1)
 	}
 
 	// Get conversation history
@@ -131,8 +158,12 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 	// Run agent loop with tool calling
 	response, err := a.runLoop(ctx, messages, chatOpts)
 	if err != nil {
+		a.logger.Error("Agent execution failed: %v", err)
 		return "", err
 	}
+
+	// Log final response
+	LogResponse(a.logger, response)
 
 	// Note: runLoop already saves the final response to memory
 	return response, nil
@@ -144,6 +175,11 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 	copy(currentMessages, messages)
 
 	for iteration := 0; iteration < a.options.MaxIterations; iteration++ {
+		LogIteration(a.logger, iteration, a.options.MaxIterations)
+
+		// Log thinking
+		LogThinking(a.logger)
+
 		// Call LLM
 		response, err := a.provider.Chat(ctx, currentMessages, opts)
 		if err != nil {
@@ -152,6 +188,8 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 
 		// If no tool calls, we're done
 		if len(response.ToolCalls) == 0 {
+			a.logger.Debug("No tool calls, returning response")
+
 			// Save final assistant response to memory
 			if a.memory != nil {
 				finalMsg := types.Message{
@@ -161,9 +199,13 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 				if err := a.memory.Add(finalMsg); err != nil {
 					return "", fmt.Errorf("failed to add final response to memory: %w", err)
 				}
+				LogMemory(a.logger, "saved", 1)
 			}
 			return response.Content, nil
 		}
+
+		// Log tool calls
+		a.logger.Info("🔧 Agent wants to call %d tool(s): %s", len(response.ToolCalls), FormatToolCalls(response.ToolCalls))
 
 		// Execute tool calls
 		assistantMsg := types.Message{
@@ -182,12 +224,18 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 
 		// Execute each tool
 		for _, toolCall := range response.ToolCalls {
+			// Log tool call
+			LogToolCall(a.logger, toolCall.Function.Name, toolCall.Function.Arguments)
+
 			result, err := a.tools.Execute(ctx, toolCall.Function.Name, toolCall.Function.Arguments)
 			if err != nil {
 				// Return error as tool result
 				result = map[string]interface{}{
 					"error": err.Error(),
 				}
+				LogToolResult(a.logger, toolCall.Function.Name, false, err)
+			} else {
+				LogToolResult(a.logger, toolCall.Function.Name, true, result)
 			}
 
 			// Add tool result to messages
@@ -204,6 +252,10 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 					return "", fmt.Errorf("failed to add tool message to memory: %w", err)
 				}
 			}
+		}
+
+		if a.memory != nil {
+			LogMemory(a.logger, "saved", len(response.ToolCalls))
 		}
 
 		// Continue loop to let LLM process tool results

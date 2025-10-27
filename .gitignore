@@ -35,3 +35,4 @@ examples/multi_provider/.env
 # .vscode/
 builtin_tools
 examples/simple/simple
+examples/agent_with_logging/agent_with_logging
