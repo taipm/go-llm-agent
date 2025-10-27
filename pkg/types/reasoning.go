@@ -127,6 +127,7 @@ const (
 	CategoryReflection MessageCategory = "reflection" // Verifications, corrections, learning
 	CategoryTool       MessageCategory = "tool"       // Tool calls and results
 	CategoryUser       MessageCategory = "user"       // User preferences, context
+	CategoryExperience MessageCategory = "experience" // Learning experiences (Phase 3)
 	CategoryGeneral    MessageCategory = "general"    // Uncategorized
 )
 

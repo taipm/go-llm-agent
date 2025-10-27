@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/taipm/go-llm-agent/pkg/builtin"
+	"github.com/taipm/go-llm-agent/pkg/learning"
 	"github.com/taipm/go-llm-agent/pkg/logger"
 	"github.com/taipm/go-llm-agent/pkg/memory"
 	"github.com/taipm/go-llm-agent/pkg/reasoning"
@@ -28,6 +31,10 @@ type Agent struct {
 	reflector  *reasoning.Reflector
 	planner    *reasoning.Planner
 
+	// Learning system (lazy initialized)
+	experienceStore *learning.ExperienceStore
+	conversationID  string // Current session ID
+
 	// Auto-reasoning settings
 	enableAutoReasoning bool
 }
@@ -40,6 +47,7 @@ type Options struct {
 	MaxIterations    int     // Maximum tool calling iterations
 	MinConfidence    float64 // Minimum confidence for reflection (0.0 = disabled)
 	EnableReflection bool    // Enable self-reflection verification
+	EnableLearning   bool    // Enable experience tracking and learning
 }
 
 // DefaultOptions returns default agent options
@@ -49,8 +57,9 @@ func DefaultOptions() *Options {
 		Temperature:      0.7,
 		MaxTokens:        2000,
 		MaxIterations:    10,
-		MinConfidence:    0.7,  // Default: require 70% confidence
-		EnableReflection: true, // Enable reflection by default
+		MinConfidence:    0.7,   // Default: require 70% confidence
+		EnableReflection: true,  // Enable reflection by default
+		EnableLearning:   false, // Disable learning by default (opt-in)
 	}
 }
 
@@ -65,8 +74,9 @@ func New(provider types.LLMProvider, opts ...Option) *Agent {
 		tools:               tools.NewRegistry(),
 		memory:              memory.NewBuffer(100), // Default memory with 100 messages
 		options:             DefaultOptions(),
-		logger:              defaultLogger, // Default logger with DEBUG level
-		enableAutoReasoning: true,          // Enable auto reasoning by default
+		logger:              defaultLogger,         // Default logger with DEBUG level
+		enableAutoReasoning: true,                  // Enable auto reasoning by default
+		conversationID:      uuid.New().String(),   // Generate unique session ID
 	}
 
 	// Load all builtin tools by default
@@ -170,6 +180,13 @@ func WithMinConfidence(threshold float64) Option {
 	}
 }
 
+// WithLearning enables experience tracking and learning
+func WithLearning(enabled bool) Option {
+	return func(a *Agent) {
+		a.options.EnableLearning = enabled
+	}
+}
+
 // AddTool registers a tool with the agent
 func (a *Agent) AddTool(t tools.Tool) error {
 	return a.tools.Register(t)
@@ -195,6 +212,7 @@ type AgentStatus struct {
 		MaxIterations    int     `json:"max_iterations"`
 		MinConfidence    float64 `json:"min_confidence"`
 		EnableReflection bool    `json:"enable_reflection"`
+		EnableLearning   bool    `json:"enable_learning"`
 	} `json:"configuration"`
 
 	// Reasoning Capabilities
@@ -219,6 +237,13 @@ type AgentStatus struct {
 		SupportsVectors bool   `json:"supports_vectors"`
 	} `json:"memory"`
 
+	// Learning
+	Learning struct {
+		Enabled              bool   `json:"enabled"`
+		ExperienceStoreReady bool   `json:"experience_store_ready"`
+		ConversationID       string `json:"conversation_id"`
+	} `json:"learning"`
+
 	// Provider
 	Provider struct {
 		Type string `json:"type"`
@@ -236,6 +261,7 @@ func (a *Agent) Status() *AgentStatus {
 	status.Configuration.MaxIterations = a.options.MaxIterations
 	status.Configuration.MinConfidence = a.options.MinConfidence
 	status.Configuration.EnableReflection = a.options.EnableReflection
+	status.Configuration.EnableLearning = a.options.EnableLearning
 
 	// Reasoning capabilities
 	status.Reasoning.AutoReasoningEnabled = a.enableAutoReasoning
@@ -267,10 +293,88 @@ func (a *Agent) Status() *AgentStatus {
 		}
 	}
 
+	// Learning
+	status.Learning.Enabled = a.options.EnableLearning
+	status.Learning.ExperienceStoreReady = (a.experienceStore != nil)
+	status.Learning.ConversationID = a.conversationID
+
 	// Provider type (detect based on type assertion)
 	status.Provider.Type = a.getProviderType()
 
 	return status
+}
+
+// initExperienceStore initializes the experience store if learning is enabled
+func (a *Agent) initExperienceStore() {
+	if a.experienceStore != nil {
+		return // Already initialized
+	}
+
+	// Check if memory supports advanced features (needed for semantic search)
+	if advMem, ok := a.memory.(types.AdvancedMemory); ok {
+		a.experienceStore = learning.NewExperienceStore(advMem)
+		a.logger.Debug("📚 Experience store initialized with vector memory")
+	} else {
+		a.logger.Warn("⚠️  Learning enabled but memory doesn't support advanced features (vector search)")
+	}
+}
+
+// recordExperience records an experience for learning
+func (a *Agent) recordExperience(ctx context.Context, query string, response string, err error, metadata map[string]interface{}) {
+	if !a.options.EnableLearning || a.experienceStore == nil {
+		return // Learning disabled or not initialized
+	}
+
+	// Create experience record
+	exp := learning.Experience{
+		ID:             uuid.New().String(),
+		Timestamp:      time.Now(),
+		Query:          query,
+		Response:       response,
+		Success:        (err == nil),
+		ConversationID: a.conversationID,
+		Metadata:       metadata,
+	}
+
+	// Add error details if failed
+	if err != nil {
+		exp.Error = err.Error()
+	}
+
+	// Extract intent and reasoning mode from metadata
+	if intent, ok := metadata["intent"].(string); ok {
+		exp.Intent = intent
+	}
+	if reasoning, ok := metadata["reasoning"].(string); ok {
+		exp.ReasoningMode = reasoning
+	}
+	if tool, ok := metadata["tool"].(string); ok {
+		exp.ToolCalled = tool
+	}
+	if args, ok := metadata["arguments"].(map[string]interface{}); ok {
+		exp.Arguments = args
+	}
+	if latency, ok := metadata["latency_ms"].(int64); ok {
+		exp.LatencyMs = latency
+	}
+	if confidence, ok := metadata["confidence"].(float64); ok {
+		exp.Confidence = confidence
+	}
+	if reflected, ok := metadata["was_reflected"].(bool); ok {
+		exp.WasReflected = reflected
+	}
+	if corrected, ok := metadata["was_corrected"].(bool); ok {
+		exp.WasCorrected = corrected
+	}
+
+	// Record experience (async, don't block)
+	go func() {
+		if err := a.experienceStore.Record(context.Background(), exp); err != nil {
+			a.logger.Debug("Failed to record experience: %v", err)
+		} else {
+			a.logger.Debug("📚 Recorded experience: %s (success=%v)", exp.ID, exp.Success)
+		}
+	}()
 }
 
 // getMemoryType returns a human-readable memory type
@@ -308,25 +412,52 @@ func (a *Agent) getProviderType() string {
 
 // Chat sends a message and returns the response
 func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
+	// Initialize experience store if learning is enabled
+	if a.options.EnableLearning && a.experienceStore == nil {
+		a.initExperienceStore()
+	}
+
+	// Track start time for latency
+	startTime := time.Now()
+
 	// Log user message
 	logger.LogUserMessage(a.logger, message)
+
+	// Metadata for experience recording
+	metadata := make(map[string]interface{})
+	var response string
+	var err error
 
 	// Check if auto-reasoning is enabled
 	if a.enableAutoReasoning {
 		approach := a.analyzeQuery(message)
 		a.logger.Debug("🧠 Query analysis: %s approach selected", approach)
+		metadata["reasoning"] = approach
+		metadata["intent"] = a.detectIntent(message)
 
 		switch approach {
 		case "cot":
-			return a.chatWithCoT(ctx, message)
+			response, err = a.chatWithCoT(ctx, message)
 		case "react":
-			return a.chatWithReAct(ctx, message)
+			response, err = a.chatWithReAct(ctx, message)
+		default:
+			// Fall through to simple chat if "simple"
+			response, err = a.chatSimple(ctx, message)
 		}
-		// Fall through to simple chat if "simple"
+	} else {
+		// Simple chat without reasoning
+		metadata["reasoning"] = "simple"
+		metadata["intent"] = a.detectIntent(message)
+		response, err = a.chatSimple(ctx, message)
 	}
 
-	// Simple chat without reasoning
-	return a.chatSimple(ctx, message)
+	// Calculate latency
+	metadata["latency_ms"] = time.Since(startTime).Milliseconds()
+
+	// Record experience for learning
+	a.recordExperience(ctx, message, response, err, metadata)
+
+	return response, err
 }
 
 // chatSimple performs simple LLM chat with tool calling (original behavior)
@@ -664,6 +795,46 @@ func (a *Agent) analyzeQuery(query string) string {
 
 	// Default to simple chat
 	return "simple"
+}
+
+// detectIntent identifies the user's intent from the query
+func (a *Agent) detectIntent(query string) string {
+	queryLower := strings.ToLower(query)
+
+	// Math/calculation intent
+	if strings.Contains(queryLower, "calculate") || 
+	   strings.Contains(queryLower, "compute") ||
+	   strings.Contains(queryLower, "solve") ||
+	   regexp.MustCompile(`\d+\s*[\+\-\*\/]\s*\d+`).MatchString(query) {
+		return "calculation"
+	}
+
+	// Web search intent
+	if strings.Contains(queryLower, "search") ||
+	   strings.Contains(queryLower, "find") ||
+	   strings.Contains(queryLower, "look up") ||
+	   strings.Contains(queryLower, "what is") {
+		return "information_retrieval"
+	}
+
+	// File operations
+	if strings.Contains(queryLower, "read file") ||
+	   strings.Contains(queryLower, "write file") ||
+	   strings.Contains(queryLower, "save to") ||
+	   strings.Contains(queryLower, "open file") {
+		return "file_operation"
+	}
+
+	// Code/technical
+	if strings.Contains(queryLower, "code") ||
+	   strings.Contains(queryLower, "program") ||
+	   strings.Contains(queryLower, "function") ||
+	   strings.Contains(queryLower, "debug") {
+		return "coding"
+	}
+
+	// General conversation
+	return "conversation"
 }
 
 // needsCoT detects if query requires step-by-step reasoning
