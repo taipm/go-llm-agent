@@ -33,12 +33,12 @@ func main() {
 	// Show available tools
 	fmt.Println("Available tools by category:")
 	categories := map[string][]string{
-		"File Operations":   {},
-		"Web Operations":    {},
-		"DateTime":          {},
-		"System":            {},
-		"Math":              {},
-		"Database":          {},
+		"File Operations": {},
+		"Web Operations":  {},
+		"DateTime":        {},
+		"System":          {},
+		"Math":            {},
+		"Database":        {},
 	}
 
 	for _, tool := range tools {

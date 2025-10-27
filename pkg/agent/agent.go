@@ -134,17 +134,7 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 		return "", err
 	}
 
-	// Add assistant response to memory
-	if a.memory != nil {
-		assistantMsg := types.Message{
-			Role:    types.RoleAssistant,
-			Content: response,
-		}
-		if err := a.memory.Add(assistantMsg); err != nil {
-			return "", fmt.Errorf("failed to add response to memory: %w", err)
-		}
-	}
-
+	// Note: runLoop already saves the final response to memory
 	return response, nil
 }
 
@@ -162,6 +152,16 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 
 		// If no tool calls, we're done
 		if len(response.ToolCalls) == 0 {
+			// Save final assistant response to memory
+			if a.memory != nil {
+				finalMsg := types.Message{
+					Role:    types.RoleAssistant,
+					Content: response.Content,
+				}
+				if err := a.memory.Add(finalMsg); err != nil {
+					return "", fmt.Errorf("failed to add final response to memory: %w", err)
+				}
+			}
 			return response.Content, nil
 		}
 
@@ -172,6 +172,13 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 			ToolCalls: response.ToolCalls,
 		}
 		currentMessages = append(currentMessages, assistantMsg)
+
+		// Save assistant message to memory
+		if a.memory != nil {
+			if err := a.memory.Add(assistantMsg); err != nil {
+				return "", fmt.Errorf("failed to add assistant message to memory: %w", err)
+			}
+		}
 
 		// Execute each tool
 		for _, toolCall := range response.ToolCalls {
@@ -190,6 +197,13 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 				ToolID:  toolCall.ID,
 			}
 			currentMessages = append(currentMessages, toolMsg)
+
+			// Save tool result to memory
+			if a.memory != nil {
+				if err := a.memory.Add(toolMsg); err != nil {
+					return "", fmt.Errorf("failed to add tool message to memory: %w", err)
+				}
+			}
 		}
 
 		// Continue loop to let LLM process tool results
