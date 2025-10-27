@@ -33,6 +33,7 @@ type Agent struct {
 
 	// Learning system (lazy initialized)
 	experienceStore *learning.ExperienceStore
+	toolSelector    *learning.ToolSelector
 	conversationID  string // Current session ID
 
 	// Auto-reasoning settings
@@ -241,6 +242,7 @@ type AgentStatus struct {
 	Learning struct {
 		Enabled              bool   `json:"enabled"`
 		ExperienceStoreReady bool   `json:"experience_store_ready"`
+		ToolSelectorReady    bool   `json:"tool_selector_ready"`
 		ConversationID       string `json:"conversation_id"`
 	} `json:"learning"`
 
@@ -296,6 +298,7 @@ func (a *Agent) Status() *AgentStatus {
 	// Learning
 	status.Learning.Enabled = a.options.EnableLearning
 	status.Learning.ExperienceStoreReady = (a.experienceStore != nil)
+	status.Learning.ToolSelectorReady = (a.toolSelector != nil)
 	status.Learning.ConversationID = a.conversationID
 
 	// Provider type (detect based on type assertion)
@@ -314,9 +317,26 @@ func (a *Agent) initExperienceStore() {
 	if advMem, ok := a.memory.(types.AdvancedMemory); ok {
 		a.experienceStore = learning.NewExperienceStore(advMem)
 		a.logger.Debug("📚 Experience store initialized with vector memory")
+		
+		// Also initialize tool selector
+		a.initToolSelector()
 	} else {
 		a.logger.Warn("⚠️  Learning enabled but memory doesn't support advanced features (vector search)")
 	}
+}
+
+// initToolSelector initializes the tool selector for learned tool recommendations
+func (a *Agent) initToolSelector() {
+	if a.toolSelector != nil {
+		return // Already initialized
+	}
+	
+	if a.experienceStore == nil {
+		return // Need experience store first
+	}
+	
+	a.toolSelector = learning.NewToolSelector(a.experienceStore, a.tools, a.logger)
+	a.logger.Debug("🎯 Tool selector initialized with ε-greedy learning")
 }
 
 // recordExperience records an experience for learning
@@ -453,11 +473,47 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 
 	// Calculate latency
 	metadata["latency_ms"] = time.Since(startTime).Milliseconds()
+	
+	// Extract tool usage from conversation history (if any)
+	if a.memory != nil {
+		if toolInfo := a.extractLastToolUsage(); toolInfo != nil {
+			metadata["tool"] = toolInfo["name"]
+			metadata["arguments"] = toolInfo["arguments"]
+		}
+	}
 
 	// Record experience for learning
 	a.recordExperience(ctx, message, response, err, metadata)
 
 	return response, err
+}
+
+// extractLastToolUsage extracts the most recent tool call from memory
+func (a *Agent) extractLastToolUsage() map[string]interface{} {
+	if a.memory == nil {
+		return nil
+	}
+	
+	// Get recent history
+	history, err := a.memory.GetHistory(10) // Last 10 messages
+	if err != nil {
+		return nil
+	}
+	
+	// Search backwards for assistant message with tool calls
+	for i := len(history) - 1; i >= 0; i-- {
+		msg := history[i]
+		if msg.Role == types.RoleAssistant && len(msg.ToolCalls) > 0 {
+			// Return first tool call info
+			firstCall := msg.ToolCalls[0]
+			return map[string]interface{}{
+				"name":      firstCall.Function.Name,
+				"arguments": firstCall.Function.Arguments,
+			}
+		}
+	}
+	
+	return nil
 }
 
 // chatSimple performs simple LLM chat with tool calling (original behavior)
@@ -1147,4 +1203,31 @@ func (a *Agent) GetPlanProgress(plan *types.Plan) *types.PlanProgress {
 		a.planner = reasoning.NewPlanner(a.provider, a.memory, a.logger, true)
 	}
 	return a.planner.GetProgress(plan)
+}
+
+// GetToolRecommendation returns a learned recommendation for which tool to use
+func (a *Agent) GetToolRecommendation(ctx context.Context, query string, intent string) (*learning.ToolRecommendation, error) {
+	// Ensure learning is initialized
+	if !a.options.EnableLearning {
+		return nil, fmt.Errorf("learning is not enabled")
+	}
+	
+	if a.experienceStore == nil {
+		a.initExperienceStore()
+	}
+	
+	if a.toolSelector == nil {
+		return nil, fmt.Errorf("tool selector not initialized")
+	}
+	
+	return a.toolSelector.RecommendTool(ctx, query, intent)
+}
+
+// GetToolStats returns performance statistics for a specific tool
+func (a *Agent) GetToolStats(ctx context.Context, toolName string, intent string) (*learning.ToolStats, error) {
+	if !a.options.EnableLearning || a.toolSelector == nil {
+		return nil, fmt.Errorf("learning is not enabled or tool selector not initialized")
+	}
+	
+	return a.toolSelector.GetToolStats(ctx, toolName, intent)
 }
