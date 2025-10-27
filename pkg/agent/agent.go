@@ -182,9 +182,18 @@ func WithMinConfidence(threshold float64) Option {
 }
 
 // WithLearning enables experience tracking and learning
+// Note: Requires AdvancedMemory (e.g., VectorMemory) to work properly
+// If using BufferMemory, learning will log a warning but continue to work with limited functionality
 func WithLearning(enabled bool) Option {
 	return func(a *Agent) {
 		a.options.EnableLearning = enabled
+
+		if enabled {
+			// Helpful log for users
+			a.logger.Info("� Learning enabled")
+			a.logger.Info("   💡 Tip: Use VectorMemory for best learning performance")
+			a.logger.Info("   Example: agent.WithMemory(vectorMemory)")
+		}
 	}
 }
 
@@ -316,12 +325,17 @@ func (a *Agent) initExperienceStore() {
 	// Check if memory supports advanced features (needed for semantic search)
 	if advMem, ok := a.memory.(types.AdvancedMemory); ok {
 		a.experienceStore = learning.NewExperienceStore(advMem)
-		a.logger.Debug("📚 Experience store initialized with vector memory")
-		
+		a.logger.Info("✅ Experience store ready (using VectorMemory)")
+
 		// Also initialize tool selector
 		a.initToolSelector()
 	} else {
-		a.logger.Warn("⚠️  Learning enabled but memory doesn't support advanced features (vector search)")
+		a.logger.Warn("⚠️  Learning disabled: VectorMemory required")
+		a.logger.Warn("   Current memory type: %s", a.getMemoryType())
+		a.logger.Warn("   To enable learning:")
+		a.logger.Warn("   1. Start Qdrant: docker run -p 6333:6333 qdrant/qdrant")
+		a.logger.Warn("   2. Create vector memory: vectorMem, _ := memory.NewVectorMemory(...)")
+		a.logger.Warn("   3. Use: agent.WithMemory(vectorMem)")
 	}
 }
 
@@ -330,13 +344,13 @@ func (a *Agent) initToolSelector() {
 	if a.toolSelector != nil {
 		return // Already initialized
 	}
-	
+
 	if a.experienceStore == nil {
 		return // Need experience store first
 	}
-	
+
 	a.toolSelector = learning.NewToolSelector(a.experienceStore, a.tools, a.logger)
-	a.logger.Debug("🎯 Tool selector initialized with ε-greedy learning")
+	a.logger.Info("✅ Tool selector ready (ε-greedy learning active)")
 }
 
 // recordExperience records an experience for learning
@@ -473,7 +487,7 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 
 	// Calculate latency
 	metadata["latency_ms"] = time.Since(startTime).Milliseconds()
-	
+
 	// Extract tool usage from conversation history (if any)
 	if a.memory != nil {
 		if toolInfo := a.extractLastToolUsage(); toolInfo != nil {
@@ -493,13 +507,13 @@ func (a *Agent) extractLastToolUsage() map[string]interface{} {
 	if a.memory == nil {
 		return nil
 	}
-	
+
 	// Get recent history
 	history, err := a.memory.GetHistory(10) // Last 10 messages
 	if err != nil {
 		return nil
 	}
-	
+
 	// Search backwards for assistant message with tool calls
 	for i := len(history) - 1; i >= 0; i-- {
 		msg := history[i]
@@ -512,7 +526,7 @@ func (a *Agent) extractLastToolUsage() map[string]interface{} {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1211,15 +1225,15 @@ func (a *Agent) GetToolRecommendation(ctx context.Context, query string, intent 
 	if !a.options.EnableLearning {
 		return nil, fmt.Errorf("learning is not enabled")
 	}
-	
+
 	if a.experienceStore == nil {
 		a.initExperienceStore()
 	}
-	
+
 	if a.toolSelector == nil {
 		return nil, fmt.Errorf("tool selector not initialized")
 	}
-	
+
 	return a.toolSelector.RecommendTool(ctx, query, intent)
 }
 
@@ -1228,6 +1242,6 @@ func (a *Agent) GetToolStats(ctx context.Context, toolName string, intent string
 	if !a.options.EnableLearning || a.toolSelector == nil {
 		return nil, fmt.Errorf("learning is not enabled or tool selector not initialized")
 	}
-	
+
 	return a.toolSelector.GetToolStats(ctx, toolName, intent)
 }
