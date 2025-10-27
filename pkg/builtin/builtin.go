@@ -8,6 +8,7 @@ import (
 	"github.com/taipm/go-llm-agent/pkg/tools/database/mongodb"
 	"github.com/taipm/go-llm-agent/pkg/tools/datetime"
 	"github.com/taipm/go-llm-agent/pkg/tools/file"
+	"github.com/taipm/go-llm-agent/pkg/tools/gmail"
 	mathtools "github.com/taipm/go-llm-agent/pkg/tools/math"
 	"github.com/taipm/go-llm-agent/pkg/tools/network"
 	"github.com/taipm/go-llm-agent/pkg/tools/system"
@@ -22,9 +23,11 @@ type Config struct {
 	File      FileConfig
 	Web       WebConfig
 	Network   NetworkConfig
+	Gmail     GmailConfig
 	NoFile    bool // Skip registering file tools
 	NoWeb     bool // Skip registering web tools
 	NoNetwork bool // Skip registering network tools
+	NoGmail   bool // Skip registering Gmail tools (default: true, requires OAuth setup)
 	NoTime    bool // Skip registering datetime tools
 	NoSystem  bool // Skip registering system tools
 	NoMath    bool // Skip registering math tools
@@ -52,6 +55,11 @@ type NetworkConfig struct {
 	Whois  network.WhoisConfig
 	SSL    network.SSLConfig
 	IPInfo network.IPInfoConfig
+}
+
+// GmailConfig contains Gmail tool configurations
+type GmailConfig struct {
+	Config gmail.GmailConfig
 }
 
 // DefaultConfig returns sensible default configuration for all built-in tools.
@@ -108,9 +116,13 @@ func DefaultConfig() Config {
 			SSL:    network.DefaultSSLConfig,
 			IPInfo: network.DefaultIPInfoConfig,
 		},
+		Gmail: GmailConfig{
+			Config: gmail.DefaultGmailConfig,
+		},
 		NoFile:    false,
 		NoWeb:     false,
 		NoNetwork: false,
+		NoGmail:   true, // Gmail disabled by default (requires OAuth setup)
 		NoTime:    false,
 		NoSystem:  false,
 		NoMath:    false,
@@ -166,6 +178,14 @@ func GetRegistryWithConfig(config Config) *tools.Registry {
 			registry.Register(ipInfoTool)
 		}
 		// Note: If GeoIP database is not configured, IP info tool will be skipped
+	}
+
+	// Register Gmail tools (disabled by default, requires OAuth setup)
+	if !config.NoGmail {
+		registry.Register(gmail.NewSendTool(config.Gmail.Config))
+		registry.Register(gmail.NewReadTool(config.Gmail.Config))
+		registry.Register(gmail.NewListTool(config.Gmail.Config))
+		registry.Register(gmail.NewSearchTool(config.Gmail.Config))
 	}
 
 	// Register DateTime tools
@@ -317,4 +337,23 @@ func ToolCount() int {
 	return 24 // 4 file + 3 web + 4 network + 3 datetime + 3 system + 2 math + 5 mongodb
 	// Note: Network tools count is 4 by default (DNS, Ping, Whois, SSL)
 	// IP info tool (+1) is only included if GeoIP database is configured
+	// Gmail tools (+4: send, read, list, search) are NOT included by default
+	// To enable Gmail tools: config.NoGmail = false (requires OAuth setup)
+}
+
+// GetGmailTools returns all Gmail-related built-in tools with custom config.
+// If config is nil, uses DefaultConfig().
+// Note: Gmail tools require OAuth2 credentials to function.
+func GetGmailTools(config *GmailConfig) []tools.Tool {
+	if config == nil {
+		cfg := DefaultConfig()
+		config = &cfg.Gmail
+	}
+
+	return []tools.Tool{
+		gmail.NewSendTool(config.Config),
+		gmail.NewReadTool(config.Config),
+		gmail.NewListTool(config.Config),
+		gmail.NewSearchTool(config.Config),
+	}
 }

@@ -59,6 +59,9 @@ const (
 
 	// CategoryNetwork represents tools that perform network operations (DNS, ping, etc.)
 	CategoryNetwork ToolCategory = "network"
+
+	// CategoryEmail represents tools that work with email (Gmail, etc.)
+	CategoryEmail ToolCategory = "email"
 )
 
 // BaseTool provides common functionality for all tools

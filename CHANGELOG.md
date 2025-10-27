@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Gmail Tools Package** (4 email automation tools with OAuth2)
+  - `gmail_send` - Send emails via Gmail API
+    * Support for to, cc, bcc recipients
+    * HTML and plain text email bodies
+    * Returns message_id and thread_id
+  - `gmail_read` - Read email messages by ID
+    * Full message content with headers and body
+    * Attachment metadata extraction
+    * Three format options: full, metadata, minimal
+    * Recursive multipart message parsing
+  - `gmail_list` - List emails with filters and pagination
+    * Gmail search query support
+    * Label filtering (INBOX, UNREAD, etc.)
+    * Configurable max results (up to 500)
+    * Pagination with next_page_token
+  - `gmail_search` - Advanced email search
+    * Full Gmail search syntax (from:, to:, subject:, is:unread, etc.)
+    * Optional metadata extraction (from, to, subject, date)
+    * Up to 100 results per search
+  - **OAuth2 Authentication Infrastructure**
+    * AuthHelper for Gmail API service management
+    * Token caching (credentials.json, token.json)
+    * Interactive authorization flow for first-time setup
+    * Automatic token refresh
+  - **NOT loaded by default** (requires OAuth2 credentials setup)
+    * Set `NoGmail: false` in builtin.Config to enable
+    * Use `GetGmailTools()` for manual access
+  - Official Google API library: google.golang.org/api v0.253.0
+  - OAuth2 authentication: golang.org/x/oauth2 v0.32.0
+  - Comprehensive README with OAuth2 setup guide and examples
+  - CategoryEmail added to tool categories
+  - Security best practices documented
+
 - **Network Tools Package** (5 professional network diagnostic tools)
   - `network_dns_lookup` - DNS record queries using `miekg/dns` library
     * Support for A, AAAA, MX, TXT, NS, CNAME, SOA, PTR records
@@ -40,6 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated builtin tools configuration to include GmailConfig and NoGmail flag
+- Added CategoryEmail to tool categories (now 8 categories)
+- Updated builtin.GetRegistry() to optionally load Gmail tools
+- Added GetGmailTools() helper function for manual Gmail tool access
 - Updated builtin tools configuration to include NetworkConfig
 - Added CategoryNetwork to tool categories
 - Enhanced builtin.GetRegistry() to auto-load network tools
