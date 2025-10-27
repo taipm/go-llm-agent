@@ -205,11 +205,11 @@ func TestFormatTool_CustomFormat(t *testing.T) {
 	ctx := context.Background()
 
 	result, err := tool.Execute(ctx, map[string]interface{}{
-		"datetime":          "15/01/2024 10:30",
-		"from_format":       "custom",
+		"datetime":           "15/01/2024 10:30",
+		"from_format":        "custom",
 		"from_custom_format": "02/01/2006 15:04",
-		"to_format":         "custom",
-		"to_custom_format":  "2006-01-02 15:04:05",
+		"to_format":          "custom",
+		"to_custom_format":   "2006-01-02 15:04:05",
 	})
 
 	if err != nil {

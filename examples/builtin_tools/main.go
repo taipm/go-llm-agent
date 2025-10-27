@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/taipm/go-llm-agent/pkg/builtin"
 	"github.com/taipm/go-llm-agent/pkg/provider"
 	"github.com/taipm/go-llm-agent/pkg/tools"
-	"github.com/taipm/go-llm-agent/pkg/tools/datetime"
-	"github.com/taipm/go-llm-agent/pkg/tools/file"
-	"github.com/taipm/go-llm-agent/pkg/tools/web"
 	"github.com/taipm/go-llm-agent/pkg/types"
 )
 
@@ -26,66 +23,15 @@ func main() {
 		log.Fatalf("Failed to initialize provider: %v", err)
 	}
 
-	// Create tool registry
-	registry := tools.NewRegistry()
+	// Create tool registry with all built-in tools (super simple!)
+	// This automatically registers all 10 built-in tools with sensible defaults
+	registry := builtin.GetRegistry()
 
-	// Register file tools (read, list, write, delete)
-	fileConfig := file.Config{
-		AllowedPaths:  []string{".", "/tmp", os.TempDir()},
-		MaxFileSize:   10 * 1024 * 1024, // 10MB
-		AllowSymlinks: false,
-	}
-	registry.Register(file.NewReadTool(fileConfig))
-	registry.Register(file.NewListTool(fileConfig))
-
-	// Register write tool with backup enabled
-	writeConfig := file.WriteConfig{
-		Config:       fileConfig,
-		CreateDirs:   true,
-		Backup:       true,
-		BackupSuffix: ".bak",
-	}
-	registry.Register(file.NewWriteTool(writeConfig))
-
-	// Register delete tool with safety restrictions
-	deleteConfig := file.DeleteConfig{
-		Config:              fileConfig,
-		ProtectedPaths:      file.DefaultDeleteConfig.ProtectedPaths,
-		AllowRecursive:      true,
-		RequireConfirmation: true,
-	}
-	registry.Register(file.NewDeleteTool(deleteConfig))
-
-	// Register datetime tools
-	registry.Register(datetime.NewNowTool())
-	registry.Register(datetime.NewFormatTool())
-	registry.Register(datetime.NewCalcTool())
-
-	// Register web tools
-	webConfig := web.Config{
-		Timeout:         30 * time.Second,
-		MaxResponseSize: 1024 * 1024, // 1MB
-		UserAgent:       "GoLLMAgent-Demo/1.0",
-		AllowPrivateIPs: false,
-	}
-	registry.Register(web.NewFetchTool(webConfig))
-
-	postConfig := web.PostConfig{
-		Timeout:         30 * time.Second,
-		MaxResponseSize: 1024 * 1024,
-		UserAgent:       "GoLLMAgent-Demo/1.0",
-		AllowPrivateIPs: false,
-	}
-	registry.Register(web.NewPostTool(postConfig))
-
-	scrapeConfig := web.ScrapeConfig{
-		Timeout:         30 * time.Second,
-		MaxResponseSize: 5 * 1024 * 1024, // 5MB for HTML
-		UserAgent:       "GoLLMAgent-Demo/1.0",
-		AllowPrivateIPs: false,
-		RateLimit:       1 * time.Second, // 1 second between requests
-	}
-	registry.Register(web.NewScrapeTool(scrapeConfig))
+	// Alternative: Use custom configuration
+	// config := builtin.DefaultConfig()
+	// config.File.Base.AllowedPaths = []string{"/custom/path"}
+	// config.NoWeb = true // Skip web tools
+	// registry := builtin.GetRegistryWithConfig(config)
 
 	fmt.Printf("Registered %d tools:\n", registry.Count())
 	for _, name := range registry.Names() {
