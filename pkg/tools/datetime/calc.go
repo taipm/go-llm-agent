@@ -20,7 +20,7 @@ func NewCalcTool() *CalcTool {
 	return &CalcTool{
 		BaseTool: tools.NewBaseTool(
 			"datetime_calc",
-			"Perform date and time calculations: add/subtract durations, find differences between dates.",
+			"Perform date and time calculations. EXAMPLES: 1) Calculate age: operation='diff', datetime='1984-01-22T00:00:00Z', target_datetime='2025-10-27T00:00:00Z' returns seconds lived. 2) Add time: operation='add', datetime='2025-01-01T00:00:00Z', duration='30d' returns date 30 days later. 3) Subtract: operation='subtract', datetime='2025-12-31T23:59:59Z', duration='1h' returns 1 hour earlier. IMPORTANT: Always include timezone 'Z' or '+07:00' in datetime strings (RFC3339 format).",
 			tools.CategoryDateTime,
 			false, // no auth required
 			true,  // safe operation
@@ -35,24 +35,24 @@ func (t *CalcTool) Parameters() *types.JSONSchema {
 		Properties: map[string]*types.JSONSchema{
 			"datetime": {
 				Type:        "string",
-				Description: "The base datetime string (RFC3339, Unix timestamp, or custom format)",
+				Description: "The base datetime in RFC3339 format with timezone (REQUIRED timezone: Z for UTC or +07:00 for GMT+7). Examples: '2025-10-27T15:30:00Z', '1984-01-22T00:00:00+07:00', '2023-12-31T23:59:59Z'. Can also use Unix timestamp as number string: '1698422400'",
 			},
 			"operation": {
 				Type:        "string",
-				Description: "Operation to perform: 'add' or 'subtract' duration, or 'diff' to find difference",
+				Description: "Operation: 'add' (add duration), 'subtract' (subtract duration), or 'diff' (find time difference). Use 'diff' to calculate age or time between two dates.",
 				Enum:        []interface{}{"add", "subtract", "diff"},
 			},
 			"duration": {
 				Type:        "string",
-				Description: "Duration to add/subtract (e.g., '2h30m', '24h', '7d'). Supports: ns, us/µs, ms, s, m, h, d (days)",
+				Description: "Duration for add/subtract operations. Format: number + unit. Units: d (days), h (hours), m (minutes), s (seconds). Examples: '30d' (30 days), '2h30m' (2.5 hours), '90s' (90 seconds), '365d' (1 year). Required for 'add' and 'subtract' operations.",
 			},
 			"target_datetime": {
 				Type:        "string",
-				Description: "Target datetime for 'diff' operation (calculates datetime - target)",
+				Description: "Target datetime for 'diff' operation in RFC3339 format with timezone. Result = datetime - target_datetime. Example: To calculate age, set datetime=birthdate, target_datetime=current_date. Format: '2025-10-27T15:30:00Z'. REQUIRED for 'diff' operation.",
 			},
 			"format": {
 				Type:        "string",
-				Description: "Input datetime format. Default: RFC3339",
+				Description: "Input datetime format. Default: RFC3339 (recommended). Only change if datetime is in different format.",
 				Enum: []interface{}{
 					"RFC3339",
 					"RFC3339Nano",
@@ -72,11 +72,11 @@ func (t *CalcTool) Parameters() *types.JSONSchema {
 			},
 			"timezone": {
 				Type:        "string",
-				Description: "Timezone for datetime (IANA format). Default: UTC",
+				Description: "Timezone for datetime (IANA format). Examples: 'UTC', 'Asia/Ho_Chi_Minh', 'America/New_York'. Default: UTC",
 			},
 			"output_format": {
 				Type:        "string",
-				Description: "Output format for result. Default: RFC3339",
+				Description: "Output format for result. Default: RFC3339. Use 'Unix' for timestamp.",
 				Enum: []interface{}{
 					"RFC3339",
 					"RFC3339Nano",

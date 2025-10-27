@@ -633,6 +633,13 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 		a.initExperienceStore()
 	}
 
+	// Track learning progress (experiences before)
+	expCountBefore := 0
+	if a.experienceStore != nil {
+		allExp, _ := a.experienceStore.Query(ctx, learning.ExperienceFilters{})
+		expCountBefore = len(allExp)
+	}
+
 	// Track start time for latency
 	startTime := time.Now()
 
@@ -680,6 +687,14 @@ func (a *Agent) Chat(ctx context.Context, message string) (string, error) {
 
 	// Record experience for learning
 	a.recordExperience(ctx, message, response, err, metadata)
+
+	// Log learning progress (experiences after)
+	if a.experienceStore != nil {
+		allExpAfter, _ := a.experienceStore.Query(ctx, learning.ExperienceFilters{})
+		expCountAfter := len(allExpAfter)
+		learned := expCountAfter > expCountBefore
+		logger.LogLearningProgress(a.logger, expCountBefore, expCountAfter, learned)
+	}
 
 	return response, err
 }
@@ -791,11 +806,11 @@ func (a *Agent) runLoop(ctx context.Context, messages []types.Message, opts *typ
 
 			// Apply reflection if enabled
 			if a.options.EnableReflection && len(currentMessages) > 0 {
-				// Get the original question (first user message)
+				// Get the MOST RECENT user message (not the first one!)
 				var question string
-				for _, msg := range currentMessages {
-					if msg.Role == types.RoleUser {
-						question = msg.Content
+				for i := len(currentMessages) - 1; i >= 0; i-- {
+					if currentMessages[i].Role == types.RoleUser {
+						question = currentMessages[i].Content
 						break
 					}
 				}

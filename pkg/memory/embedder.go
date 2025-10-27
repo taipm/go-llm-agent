@@ -28,14 +28,14 @@ func NewOllamaEmbedder(baseURL, model string) *OllamaEmbedder {
 		baseURL = "http://localhost:11434"
 	}
 	if model == "" {
-		model = "nomic-embed-text" // Default embedding model
+		model = "nomic-embed-text:latest" // Default embedding model
 	}
-	
+
 	dims := 768 // nomic-embed-text dimensions
 	if model == "mxbai-embed-large" {
 		dims = 1024
 	}
-	
+
 	return &OllamaEmbedder{
 		baseURL: baseURL,
 		model:   model,
@@ -45,46 +45,46 @@ func NewOllamaEmbedder(baseURL, model string) *OllamaEmbedder {
 
 func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
 	url := fmt.Sprintf("%s/api/embeddings", e.baseURL)
-	
+
 	payload := map[string]interface{}{
 		"model":  e.model,
 		"prompt": text,
 	}
-	
+
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Ollama: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("Ollama error (status %d): %s", resp.StatusCode, string(body))
 	}
-	
+
 	var result struct {
 		Embedding []float32 `json:"embedding"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	if len(result.Embedding) == 0 {
 		return nil, fmt.Errorf("empty embedding returned")
 	}
-	
+
 	return result.Embedding, nil
 }
 
@@ -104,12 +104,12 @@ func NewOpenAIEmbedder(apiKey, model string) *OpenAIEmbedder {
 	if model == "" {
 		model = "text-embedding-3-small" // Default model
 	}
-	
+
 	dims := 1536 // text-embedding-3-small dimensions
 	if model == "text-embedding-3-large" {
 		dims = 3072
 	}
-	
+
 	return &OpenAIEmbedder{
 		apiKey: apiKey,
 		model:  model,
@@ -119,50 +119,50 @@ func NewOpenAIEmbedder(apiKey, model string) *OpenAIEmbedder {
 
 func (e *OpenAIEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
 	url := "https://api.openai.com/v1/embeddings"
-	
+
 	payload := map[string]interface{}{
 		"model": e.model,
 		"input": text,
 	}
-	
+
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", e.apiKey))
-	
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call OpenAI: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("OpenAI error (status %d): %s", resp.StatusCode, string(body))
 	}
-	
+
 	var result struct {
 		Data []struct {
 			Embedding []float32 `json:"embedding"`
 		} `json:"data"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	if len(result.Data) == 0 || len(result.Data[0].Embedding) == 0 {
 		return nil, fmt.Errorf("empty embedding returned")
 	}
-	
+
 	return result.Data[0].Embedding, nil
 }
 

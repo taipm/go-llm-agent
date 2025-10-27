@@ -44,7 +44,13 @@ func (t *InsertTool) Parameters() *types.JSONSchema {
 				Description: "Name of the collection to insert into",
 			},
 			"documents": {
-				Description: "Single document (object) or array of documents to insert. Max 100 documents per batch.",
+				Type:        "array",
+				Description: "Array of document objects to insert. Each document is a JSON object. Max 100 documents per batch.",
+				Items: &types.JSONSchema{
+					Type:                 "object",
+					Description:          "A document to insert",
+					AdditionalProperties: true, // Allow any properties
+				},
 			},
 		},
 	}

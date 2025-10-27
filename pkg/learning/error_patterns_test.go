@@ -37,7 +37,7 @@ func TestErrorAnalyzerHelpers(t *testing.T) {
 	t.Run("topN should return top N items sorted by frequency", func(t *testing.T) {
 		items := map[string]int{"a": 10, "b": 5, "c": 8, "d": 3, "e": 15}
 		top2 := analyzer.topN(items, 2)
-		
+
 		if len(top2) != 2 {
 			t.Fatalf("Expected 2 items, got %d", len(top2))
 		}
@@ -72,11 +72,11 @@ func TestErrorAnalyzerHelpers(t *testing.T) {
 			{ID: "3", ErrorType: "math_error", ToolCalled: "other"},
 		}
 		sim := analyzer.calculateClusterSimilarity(exps)
-		
+
 		if sim <= 0 || sim > 1 {
 			t.Errorf("Similarity out of range [0,1]: %.2f", sim)
 		}
-		
+
 		t.Logf("Cluster similarity: %.2f", sim)
 	})
 }
@@ -114,7 +114,7 @@ func TestPatternMatching(t *testing.T) {
 	t.Run("scorePatternMatch should score similar queries highly", func(t *testing.T) {
 		pattern := &analyzer.patterns[0]
 		score := analyzer.scorePatternMatch(pattern, "100 divided by zero", "division by zero")
-		
+
 		if score <= 0 {
 			t.Errorf("Expected positive score for similar query, got %.2f", score)
 		}
@@ -124,7 +124,7 @@ func TestPatternMatching(t *testing.T) {
 	t.Run("scorePatternMatch should score dissimilar queries lowly", func(t *testing.T) {
 		pattern := &analyzer.patterns[0]
 		score := analyzer.scorePatternMatch(pattern, "fetch data from API", "network timeout")
-		
+
 		if score > 0.5 {
 			t.Errorf("Expected low score for dissimilar query, got %.2f", score)
 		}

@@ -19,7 +19,7 @@ func NewNowTool() *NowTool {
 	return &NowTool{
 		BaseTool: tools.NewBaseTool(
 			"datetime_now",
-			"Get the current date and time in a specified format and timezone",
+			"Get the current date and time. Returns current datetime in RFC3339 format with timezone by default (e.g., '2025-10-27T15:30:00Z' or '2025-10-27T22:30:00+07:00'). Use timezone parameter to get time in specific timezone. Use this tool to get current time before calculating time differences or age.",
 			tools.CategoryDateTime,
 			false, // no auth required
 			true,  // safe operation
@@ -34,7 +34,7 @@ func (t *NowTool) Parameters() *types.JSONSchema {
 		Properties: map[string]*types.JSONSchema{
 			"format": {
 				Type:        "string",
-				Description: "Time format string (RFC3339, RFC822, Kitchen, or custom Go format). Default: RFC3339",
+				Description: "Output format. Default: RFC3339 (recommended, includes timezone). Use 'RFC3339' for datetime calculations. Examples: RFC3339='2025-10-27T15:30:00Z', RFC1123='Mon, 27 Oct 2025 15:30:00 UTC'",
 				Enum: []interface{}{
 					"RFC3339",     // 2006-01-02T15:04:05Z07:00
 					"RFC3339Nano", // 2006-01-02T15:04:05.999999999Z07:00
@@ -55,7 +55,7 @@ func (t *NowTool) Parameters() *types.JSONSchema {
 			},
 			"timezone": {
 				Type:        "string",
-				Description: "IANA timezone (e.g., 'America/New_York', 'Asia/Tokyo'). Default: UTC",
+				Description: "IANA timezone name. Examples: 'UTC' (default), 'Asia/Ho_Chi_Minh' (Vietnam GMT+7), 'America/New_York' (US EST/EDT), 'Europe/London'. Use this to get current time in user's local timezone.",
 			},
 		},
 	}

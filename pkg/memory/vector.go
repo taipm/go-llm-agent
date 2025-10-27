@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -107,6 +109,12 @@ func (v *VectorMemory) AddWithEmbedding(ctx context.Context, message types.Messa
 	// Add to hot cache
 	v.cache.Add(message)
 
+	// Skip Qdrant storage for messages with empty content (e.g., tool call messages)
+	// These are still stored in cache but don't need vector embedding
+	if strings.TrimSpace(message.Content) == "" {
+		return nil
+	}
+
 	// Generate embedding if not provided
 	if embedding == nil {
 		emb, err := v.embedder.Embed(ctx, message.Content)
@@ -165,10 +173,49 @@ func (v *VectorMemory) AddWithEmbedding(ctx context.Context, message types.Messa
 	return nil
 }
 
-// GetHistory implements types.Memory interface
+// GetHistory implements types.Memory interface with hybrid retrieval
 func (v *VectorMemory) GetHistory(limit int) ([]types.Message, error) {
-	// Use hot cache for recent messages
+	// ALWAYS return recent messages from cache (buffer)
+	// This ensures agent sees the immediate conversation context
 	return v.cache.GetHistory(limit)
+}
+
+// GetHistoryWithContext retrieves recent messages + semantically relevant context
+// This is a new method for richer context retrieval
+func (v *VectorMemory) GetHistoryWithContext(ctx context.Context, query string, recentLimit int, semanticLimit int) ([]types.Message, error) {
+	// Step 1: Get recent messages from cache (high priority)
+	recentMessages, err := v.cache.GetHistory(recentLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent messages: %w", err)
+	}
+
+	// Step 2: Get semantically similar messages from vector DB
+	semanticMessages, err := v.SearchSemantic(ctx, query, semanticLimit)
+	if err != nil {
+		// If semantic search fails, just return recent messages
+		return recentMessages, nil
+	}
+
+	// Step 3: Merge and deduplicate (recent messages have priority)
+	seen := make(map[string]bool)
+	merged := make([]types.Message, 0, recentLimit+semanticLimit)
+
+	// Add recent messages first
+	for _, msg := range recentMessages {
+		key := fmt.Sprintf("%s:%s:%d", msg.Role, msg.Content, len(msg.Content))
+		seen[key] = true
+		merged = append(merged, msg)
+	}
+
+	// Add semantic messages that aren't duplicates
+	for _, msg := range semanticMessages {
+		key := fmt.Sprintf("%s:%s:%d", msg.Role, msg.Content, len(msg.Content))
+		if !seen[key] {
+			merged = append(merged, msg)
+		}
+	}
+
+	return merged, nil
 }
 
 // Clear implements types.Memory interface
@@ -192,7 +239,7 @@ func (v *VectorMemory) Size() int {
 	return v.cache.Size()
 }
 
-// SearchSemantic implements types.AdvancedMemory interface
+// SearchSemantic implements types.AdvancedMemory interface with recency bias
 func (v *VectorMemory) SearchSemantic(ctx context.Context, query string, limit int) ([]types.Message, error) {
 	// Generate query embedding
 	queryEmbedding, err := v.embedder.Embed(ctx, query)
@@ -200,26 +247,78 @@ func (v *VectorMemory) SearchSemantic(ctx context.Context, query string, limit i
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
 
-	// Search in Qdrant
+	// Get current timestamp for recency scoring
+	now := time.Now().Unix()
+
+	// Search in Qdrant with score modifier for recency
+	// We search for more results than needed, then re-rank with recency
+	searchLimit := limit * 3 // Search 3x more, then filter
 	searchResult, err := v.client.Query(ctx, &qdrant.QueryPoints{
 		CollectionName: v.collectionName,
 		Query:          qdrant.NewQuery(queryEmbedding...),
-		Limit:          qdrant.PtrOf(uint64(limit)),
+		Limit:          qdrant.PtrOf(uint64(searchLimit)),
 		WithPayload:    qdrant.NewWithPayload(true),
+		ScoreThreshold: qdrant.PtrOf(float32(0.5)), // Minimum similarity threshold
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 
-	// Convert results to messages
-	messages := make([]types.Message, 0, len(searchResult))
+	// Re-rank results with recency bias
+	type scoredMessage struct {
+		msg           types.Message
+		originalScore float64
+		finalScore    float64
+	}
+
+	scored := make([]scoredMessage, 0, len(searchResult))
 	for _, point := range searchResult {
 		msg, err := v.pointToMessage(point)
 		if err != nil {
-			continue // Skip invalid points
+			continue
 		}
-		messages = append(messages, msg)
+
+		// Get timestamp from message
+		timestamp := int64(0)
+		if msg.Metadata != nil {
+			if ts, ok := msg.Metadata["timestamp"].(float64); ok {
+				timestamp = int64(ts)
+			}
+		}
+
+		// Calculate recency boost (decay factor for older messages)
+		// Messages within 1 hour: full boost
+		// Messages older than 24 hours: reduced boost
+		ageSeconds := now - timestamp
+		recencyBoost := 1.0
+		if ageSeconds < 3600 { // < 1 hour
+			recencyBoost = 1.5 // 50% boost for very recent
+		} else if ageSeconds < 86400 { // < 24 hours
+			recencyBoost = 1.2 // 20% boost for recent
+		} else {
+			recencyBoost = 1.0 // No boost for old messages
+		}
+
+		originalScore := float64(point.Score)
+		finalScore := originalScore * recencyBoost
+
+		scored = append(scored, scoredMessage{
+			msg:           msg,
+			originalScore: originalScore,
+			finalScore:    finalScore,
+		})
+	}
+
+	// Sort by final score (descending)
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].finalScore > scored[j].finalScore
+	})
+
+	// Take top N results
+	messages := make([]types.Message, 0, limit)
+	for i := 0; i < len(scored) && i < limit; i++ {
+		messages = append(messages, scored[i].msg)
 	}
 
 	return messages, nil

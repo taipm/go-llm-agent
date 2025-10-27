@@ -46,20 +46,23 @@ func (t *FindTool) Parameters() *types.JSONSchema {
 				Description: "Name of the collection to query",
 			},
 			"filter": {
-				Type:        "object",
-				Description: "MongoDB query filter (e.g., {\"age\": {\"$gt\": 25}} or {\"name\": \"John\"}). Default: {} (all documents)",
+				Type:                 "object",
+				Description:          "MongoDB query filter (e.g., {\"age\": {\"$gt\": 25}} or {\"name\": \"John\"}). Default: {} (all documents)",
+				AdditionalProperties: true, // Allow any MongoDB query operators
 			},
 			"limit": {
 				Type:        "integer",
 				Description: "Maximum number of documents to return (default: 10, max: 1000)",
 			},
 			"sort": {
-				Type:        "object",
-				Description: "Sort specification (e.g., {\"age\": -1} for descending, {\"name\": 1} for ascending)",
+				Type:                 "object",
+				Description:          "Sort specification (e.g., {\"age\": -1} for descending, {\"name\": 1} for ascending)",
+				AdditionalProperties: true, // Allow any field names
 			},
 			"projection": {
-				Type:        "object",
-				Description: "Fields to include or exclude (e.g., {\"name\": 1, \"age\": 1, \"_id\": 0})",
+				Type:                 "object",
+				Description:          "Fields to include or exclude (e.g., {\"name\": 1, \"age\": 1, \"_id\": 0})",
+				AdditionalProperties: true, // Allow any field names
 			},
 		},
 	}

@@ -5,12 +5,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/taipm/go-llm-agent/pkg/agent"
 	"github.com/taipm/go-llm-agent/pkg/logger"
-	"github.com/taipm/go-llm-agent/pkg/provider/ollama"
+	"github.com/taipm/go-llm-agent/pkg/memory"
+	"github.com/taipm/go-llm-agent/pkg/provider"
+	"github.com/taipm/go-llm-agent/pkg/types"
 )
 
 // PersonalAssistant represents an intelligent personal assistant
@@ -20,26 +24,125 @@ type PersonalAssistant struct {
 	logger logger.Logger
 }
 
-// NewPersonalAssistant creates a new personal assistant with learning capabilities
+// NewPersonalAssistant creates a new personal assistant with LLM and tools
 func NewPersonalAssistant() (*PersonalAssistant, error) {
+	// Load .env file (ignore error if not exists)
+	godotenv.Load()
+
 	ctx := context.Background()
-	log := logger.NewConsoleLogger()
 
-	// Use Ollama with a capable model (qwen2.5 recommended for better reasoning)
-	llm := ollama.New("http://localhost:11434", "qwen2.5:3b") // or "llama3.2:3b", "gemma2:2b"
+	// Read configuration from environment
+	llmProvider := getEnv("LLM_PROVIDER", "ollama")
+	llmModel := getEnv("LLM_MODEL", "qwen2.5:3b")
+	ollamaURL := getEnv("OLLAMA_BASE_URL", "http://localhost:11434")
+	openaiURL := getEnv("OPENAI_BASE_URL", "https://api.openai.com")
 
-	// Create agent with auto-configured memory and tools
-	// Agent.New() automatically tries VectorMemory, falls back to BufferMemory
-	ag := agent.New(
-		llm,
-		agent.WithLearning(true), // Enable self-learning
-		agent.WithLogLevel(logger.LogLevelInfo),
-	)
+	useVectorMemory := getEnvBool("USE_VECTOR_MEMORY", true)
+	qdrantURL := getEnv("QDRANT_URL", "localhost:6334")
+	collectionName := getEnv("QDRANT_COLLECTION", "personal_assistant")
+	embeddingModel := getEnv("EMBEDDING_MODEL", "nomic-embed-text:latest")
+	embeddingURL := getEnv("EMBEDDING_BASE_URL", "http://localhost:11434")
+	cacheSize := getEnvInt("MEMORY_CACHE_SIZE", 100)
+
+	enableLearning := getEnvBool("ENABLE_LEARNING", true)
+	enableReflection := getEnvBool("ENABLE_REFLECTION", true)
+	minConfidence := getEnvFloat("MIN_CONFIDENCE", 0.7)
+	temperature := getEnvFloat("TEMPERATURE", 0.7)
+	maxTokens := getEnvInt("MAX_TOKENS", 2000)
+	maxIterations := getEnvInt("MAX_ITERATIONS", 10)
+	logLevel := getEnv("LOG_LEVEL", "INFO")
+	systemPrompt := getEnv("SYSTEM_PROMPT", "")
+
+	// Initialize LLM provider config
+	providerConfig := provider.Config{
+		Type:  provider.ProviderType(llmProvider),
+		Model: llmModel,
+	}
+
+	// Set BaseURL only for non-standard endpoints
+	// For OpenAI official API, DON'T set BaseURL (SDK adds /v1 automatically)
+	// For Ollama, set custom URL
+	// For Gemini, no BaseURL needed
+	if llmProvider == "ollama" {
+		providerConfig.BaseURL = ollamaURL
+	} else if llmProvider == "openai" && openaiURL != "" && openaiURL != "https://api.openai.com" {
+		// Only set BaseURL for Azure OpenAI or custom endpoints
+		providerConfig.BaseURL = openaiURL
+	}
+
+	// Add API keys based on provider
+	if llmProvider == "openai" {
+		providerConfig.APIKey = os.Getenv("OPENAI_API_KEY")
+	} else if llmProvider == "gemini" {
+		providerConfig.APIKey = os.Getenv("GEMINI_API_KEY")
+	}
+
+	llm, err := provider.New(providerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM provider: %w", err)
+	}
+
+	// Create memory based on configuration
+	var mem types.Memory
+	if useVectorMemory {
+		vectorMem, err := memory.NewVectorMemory(ctx, memory.VectorMemoryConfig{
+			QdrantURL:      qdrantURL,
+			CollectionName: collectionName,
+			Embedder:       memory.NewOllamaEmbedder(embeddingURL, embeddingModel),
+			CacheSize:      cacheSize,
+		})
+
+		if err != nil {
+			fmt.Printf("[WARN] Failed to create VectorMemory: %v. Using BufferMemory instead.\n", err)
+			mem = memory.NewBuffer(cacheSize)
+		} else {
+			mem = vectorMem
+		}
+	} else {
+		mem = memory.NewBuffer(cacheSize)
+	}
+
+	// Parse log level
+	var logLvl logger.LogLevel
+	switch strings.ToUpper(logLevel) {
+	case "DEBUG":
+		logLvl = logger.LogLevelDebug
+	case "INFO":
+		logLvl = logger.LogLevelInfo
+	case "WARN":
+		logLvl = logger.LogLevelWarn
+	case "ERROR":
+		logLvl = logger.LogLevelError
+	default:
+		logLvl = logger.LogLevelInfo
+	}
+
+	// Build agent options
+	opts := []agent.Option{
+		agent.WithMemory(mem),
+		agent.WithLearning(enableLearning),
+		agent.WithReflection(enableReflection),
+		agent.WithMinConfidence(minConfidence),
+		agent.WithTemperature(temperature),
+		agent.WithMaxTokens(maxTokens),
+		agent.WithLogLevel(logLvl),
+	}
+
+	// Add system prompt if provided
+	if systemPrompt != "" {
+		opts = append(opts, agent.WithSystemPrompt(systemPrompt))
+	}
+
+	// Create agent with configured options
+	ag := agent.New(llm, opts...)
+
+	// Note: maxIterations is handled internally by agent
+	_ = maxIterations
 
 	return &PersonalAssistant{
 		agent:  ag,
 		ctx:    ctx,
-		logger: log,
+		logger: logger.NewConsoleLogger(),
 	}, nil
 }
 
@@ -281,4 +384,42 @@ func main() {
 	}
 
 	fmt.Println("\n✨ Thank you for using Personal Assistant!")
+}
+
+// Helper functions for reading environment variables
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if value == "true" || value == "1" || value == "yes" {
+			return true
+		}
+		if value == "false" || value == "0" || value == "no" {
+			return false
+		}
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
+
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatVal
+		}
+	}
+	return defaultValue
 }

@@ -29,7 +29,7 @@ go.work.sum
 examples/openai_chat/.env
 examples/gemini_chat/.env
 examples/multi_provider/.env
-
+examples/personal_assistant/.env
 # Editor/IDE
 # .idea/
 # .vscode/

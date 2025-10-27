@@ -170,8 +170,22 @@ func LogToolCall(logger Logger, toolName string, params map[string]interface{}) 
 // LogToolResult logs the result of a tool call
 func LogToolResult(logger Logger, toolName string, success bool, result interface{}) {
 	if success {
-		logger.Info("✓ Tool %s completed successfully", toolName)
-		logger.Debug("   Result: %v", result)
+		// Format and log result at INFO level (truncate if too long)
+		resultStr := fmt.Sprintf("%v", result)
+
+		// Check if result is meaningful (not empty map, nil, etc.)
+		if resultStr != "" && resultStr != "<nil>" && resultStr != "map[]" {
+			if len(resultStr) > 200 {
+				// Truncate long results
+				resultStr = resultStr[:200] + "..."
+			}
+			logger.Info("✓ Tool %s completed: %s", toolName, resultStr)
+		} else {
+			logger.Info("✓ Tool %s completed successfully", toolName)
+		}
+
+		// Full result at DEBUG level
+		logger.Debug("   Full result: %v", result)
 	} else {
 		logger.Error("✗ Tool %s failed: %v", toolName, result)
 	}
@@ -220,4 +234,25 @@ func FormatToolCalls(toolCalls []types.ToolCall) string {
 		names[i] = tc.Function.Name
 	}
 	return strings.Join(names, ", ")
+}
+
+// LogLearningProgress logs learning progress after interaction
+func LogLearningProgress(logger Logger, beforeExp, afterExp int, learned bool) {
+	if !learned {
+		logger.Debug("📚 No new learning (experience count: %d)", afterExp)
+		return
+	}
+
+	newExpCount := afterExp - beforeExp
+	if newExpCount > 0 {
+		logger.Info("📚 Agent learned from this interaction (+%d experience%s, total: %d)",
+			newExpCount,
+			func() string {
+				if newExpCount > 1 {
+					return "s"
+				}
+				return ""
+			}(),
+			afterExp)
+	}
 }

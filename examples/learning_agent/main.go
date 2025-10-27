@@ -16,7 +16,7 @@ const (
 	qdrantURL      = "localhost:6334"
 	ollamaURL      = "http://localhost:11434"
 	modelName      = "qwen3:1.7b"
-	embedModel     = "nomic-embed-text"
+	embedModel     = "nomic-embed-text:latest"
 	collectionName = "learning_demo"
 )
 

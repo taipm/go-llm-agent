@@ -78,12 +78,13 @@ type FunctionDefinition struct {
 
 // JSONSchema represents a JSON schema for function parameters
 type JSONSchema struct {
-	Type        string                 `json:"type"`
-	Description string                 `json:"description,omitempty"`
-	Properties  map[string]*JSONSchema `json:"properties,omitempty"`
-	Required    []string               `json:"required,omitempty"`
-	Items       *JSONSchema            `json:"items,omitempty"`
-	Enum        []interface{}          `json:"enum,omitempty"`
+	Type                 string                 `json:"type"`
+	Description          string                 `json:"description,omitempty"`
+	Properties           map[string]*JSONSchema `json:"properties,omitempty"`
+	Required             []string               `json:"required,omitempty"`
+	Items                *JSONSchema            `json:"items,omitempty"`
+	Enum                 []interface{}          `json:"enum,omitempty"`
+	AdditionalProperties interface{}            `json:"additionalProperties,omitempty"` // OpenAI: true/false or schema
 }
 
 // StreamChunk represents a chunk of streaming response

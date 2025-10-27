@@ -43,8 +43,9 @@ func (t *DeleteTool) Parameters() *types.JSONSchema {
 				Description: "Name of the collection to delete from",
 			},
 			"filter": {
-				Type:        "object",
-				Description: "Query filter to match documents to delete (e.g., {\"status\": \"inactive\"}). Use {} with caution as it matches all documents!",
+				Type:                 "object",
+				Description:          "Query filter to match documents to delete (e.g., {\"status\": \"inactive\"}). Use {} with caution as it matches all documents!",
+				AdditionalProperties: true, // Allow any MongoDB query operators
 			},
 			"delete_many": {
 				Type:        "boolean",

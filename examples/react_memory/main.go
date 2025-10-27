@@ -48,7 +48,7 @@ func main() {
 		}
 		embeddingModel := os.Getenv("EMBEDDING_MODEL")
 		if embeddingModel == "" {
-			embeddingModel = "nomic-embed-text"
+			embeddingModel = "nomic-embed-text:latest"
 		}
 
 		vectorMem, err := memory.NewVectorMemory(ctx, memory.VectorMemoryConfig{

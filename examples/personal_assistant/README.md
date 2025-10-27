@@ -36,18 +36,51 @@ docker run -p 6334:6334 -p 6333:6333 qdrant/qdrant
 
 ## Quick Start
 
-### 1. Install Ollama and Download a Model
+### 1. Configure Your Assistant
+
+Copy the example configuration and customize it:
+```bash
+cp .env.example .env
+# Edit .env with your preferred settings
+```
+
+**Quick configurations available:**
+- `.env.example` - Template with all options
+- `.env.gemini` - Pre-configured for Google Gemini
+- Default uses Ollama with qwen2.5:3b
+
+**Key settings:**
+```bash
+# Choose your LLM provider
+LLM_PROVIDER=ollama          # Options: ollama, openai, gemini
+LLM_MODEL=qwen2.5:3b         # Model name
+
+# For Gemini (get API key from https://aistudio.google.com/apikey)
+# LLM_PROVIDER=gemini
+# LLM_MODEL=gemini-2.0-flash-exp
+# GEMINI_API_KEY=your-api-key-here
+
+# Enable/disable features
+USE_VECTOR_MEMORY=true       # Requires Qdrant
+ENABLE_LEARNING=true         # Self-learning from experience
+ENABLE_REFLECTION=true       # Self-verification of answers
+LOG_LEVEL=INFO              # DEBUG, INFO, WARN, ERROR
+```
+
+### 2. Install Ollama (if using Ollama provider)
 ```bash
 # Install Ollama (macOS/Linux)
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Download a recommended model (choose one)
+# Download a recommended model
 ollama pull qwen2.5:3b    # Recommended - good balance
+# OR
 ollama pull llama3.2:3b   # Alternative
+# OR
 ollama pull gemma2:2b     # Lighter option
 ```
 
-### 2. (Optional) Start Qdrant for Learning
+### 3. (Optional) Start Qdrant for Learning
 ```bash
 docker run -d -p 6334:6334 -p 6333:6333 --name qdrant qdrant/qdrant
 ```

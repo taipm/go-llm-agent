@@ -43,12 +43,14 @@ func (t *UpdateTool) Parameters() *types.JSONSchema {
 				Description: "Name of the collection to update",
 			},
 			"filter": {
-				Type:        "object",
-				Description: "Query filter to match documents (e.g., {\"age\": {\"$gt\": 25}})",
+				Type:                 "object",
+				Description:          "Query filter to match documents (e.g., {\"age\": {\"$gt\": 25}})",
+				AdditionalProperties: true, // Allow any MongoDB query operators
 			},
 			"update": {
-				Type:        "object",
-				Description: "Update operations using MongoDB operators (e.g., {\"$set\": {\"status\": \"active\"}})",
+				Type:                 "object",
+				Description:          "Update operations using MongoDB operators (e.g., {\"$set\": {\"status\": \"active\"}})",
+				AdditionalProperties: true, // Allow any MongoDB update operators
 			},
 			"update_many": {
 				Type:        "boolean",

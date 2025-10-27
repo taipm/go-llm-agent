@@ -60,7 +60,7 @@ func main() {
 	vectorMem, err := memory.NewVectorMemory(ctx, memory.VectorMemoryConfig{
 		QdrantURL:      "localhost:6334",
 		CollectionName: "agent_demo",
-		Embedder:       memory.NewOllamaEmbedder(baseURL, "nomic-embed-text"),
+		Embedder:       memory.NewOllamaEmbedder(baseURL, "nomic-embed-text:latest"),
 		CacheSize:      50,
 	})
 
