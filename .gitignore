@@ -36,3 +36,4 @@ examples/multi_provider/.env
 builtin_tools
 examples/simple/simple
 examples/agent_with_logging/agent_with_logging
+examples/standalone_demo/standalone-demo
